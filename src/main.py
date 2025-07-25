@@ -82,6 +82,9 @@ def map_fantasypros_to_pipeline(df):
     for stat in ['team','position']:
         if stat not in mapped_df.columns:
             mapped_df[stat] = ''
+    # Ensure all stat columns are numeric
+    for stat in ['rushing_yds','rushing_tds','receptions','receiving_yds','receiving_tds','passing_yds','passing_tds']:
+        mapped_df[stat] = pd.to_numeric(mapped_df[stat], errors='coerce').fillna(0)
     return mapped_df
 
 def normalize_name(name):
