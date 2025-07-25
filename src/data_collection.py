@@ -57,6 +57,7 @@ def get_latest_nflfastr_seasons(n=2):
     return [str(latest - i) for i in range(n)]
 
 def download_nflfastr_csv(season, out_path=None):
+    # Correct base URL for nflfastR data
     base_url = f"https://github.com/nflverse/nflfastR-data/releases/download/play_by_play_{season}/play_by_play_{season}.csv.gz"
     if out_path is None:
         out_path = f"play_by_play_{season}.csv.gz"
