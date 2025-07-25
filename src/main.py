@@ -163,48 +163,29 @@ def main():
         avg_games_dict = calculate_expected_games(nflfastr_df, props_df)
         print('[INFO] Calculating fantasy points and applying weights...')
         results = []
-        for idx, row in props_df.iterrows():
+        for _, row in props_df.iterrows():
             player_id = row['player_id']
             team = row['team']
             position = row.get('position', 'RB')
-            expected_games = avg_games_dict.get(player_id, 17)
-            try:
-                games_played, age, pos = expected_games, None, position
-            except Exception as e:
-                print(f'[WARN] Could not extract availability for {player_id}: {e}')
-                games_played, age, pos = 17, None, position
-            implied_points = league_avg_points  # Placeholder
-            win_total = league_avg_wins
-            pace_row = team_pace_df[team_pace_df['team'] == team]
-            pace = float(pace_row['plays_per_game'].iloc[0]) if not pace_row.empty else league_avg_plays
+            expected_games = 17  # Baseline: ignore injury weighting
             try:
                 raw_points = calculate_fantasy_points(row)
             except Exception as e:
                 print(f'[WARN] Could not calculate fantasy points for {player_id}: {e}')
                 raw_points = 0
-            try:
-                inj_weight = games_played / 17.0
-            except Exception as e:
-                print(f'[WARN] Could not calculate injury weight for {player_id}: {e}')
-                inj_weight = 1.0
-            try:
-                team_weight = team_context_weight(
-                    implied_points, league_avg_points, win_total, league_avg_wins, pace, league_avg_plays, position
-                )
-            except Exception as e:
-                print(f'[WARN] Could not calculate team context weight for {player_id}: {e}')
-                team_weight = 1.0
-            weighted_points = raw_points * inj_weight * team_weight
+            inj_weight = 1.0  # Baseline: no injury weighting
+            team_weight = 1.0  # Baseline: no team context weighting
+            weighted_points = raw_points  # No weighting
             results.append({
                 **row,
-                'expected_games': games_played,
-                'position': pos,
+                'expected_games': expected_games,
+                'position': position,
                 'raw_fantasy_points': raw_points,
                 'injury_weight': inj_weight,
                 'team_weight': team_weight,
                 'weighted_fantasy_points': weighted_points,
-                'implied_points': implied_points,
-                'pace': pace,
+                'implied_points': 0,
+                'pace': 0,
             })
         results_df = pd.DataFrame(results)
         print(f'[INFO] Ranking {len(results_df)} players and exporting to Excel...')
