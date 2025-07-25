@@ -2,14 +2,14 @@ import os
 import requests
 import pandas as pd
 
-SPORTSBOOKAPI_BASE = "https://sportsbook-odds.p.rapidapi.com"
+SPORTSBOOKAPI_BASE = "https://sportsbook-api2.p.rapidapi.com"
 
 # Helper to call SportsbookAPI
 
 def sportsbookapi_request(endpoint, params=None, api_key=None):
     headers = {
         "X-RapidAPI-Key": api_key,
-        "X-RapidAPI-Host": "sportsbook-odds.p.rapidapi.com"
+        "X-RapidAPI-Host": "sportsbook-api2.p.rapidapi.com"
     }
     url = f"{SPORTSBOOKAPI_BASE}{endpoint}"
     response = requests.get(url, headers=headers, params=params)
@@ -17,7 +17,7 @@ def sportsbookapi_request(endpoint, params=None, api_key=None):
     return response.json()
 
 def get_nfl_competition_key(api_key):
-    data = sportsbookapi_request("/v0/competitions/", api_key=api_key)
+    data = sportsbookapi_request("/v0/competitions/", params={"includeInstances": "true"}, api_key=api_key)
     for comp in data:
         if "NFL" in comp.get("name", ""):
             return comp["key"]
