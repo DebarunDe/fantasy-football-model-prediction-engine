@@ -15,59 +15,85 @@ import re
 def map_fantasypros_to_pipeline(df):
     # Remove any blank header rows
     df = df[df['Player'].notnull() & (df['Player'].str.strip() != '')]
-    # Determine position if not present
-    if 'position' not in df.columns:
-        if 'ATT' in df.columns and 'CMP' in df.columns:
-            pos = 'QB'
-        elif 'REC' in df.columns and 'YDS' in df.columns:
-            pos = 'WR'  # Could be WR or RB, will check below
-        else:
-            pos = 'RB'  # Fallback
-        df['position'] = pos
-    # Map columns by position
     mapped_rows = []
     for _, row in df.iterrows():
-        pos = row.get('position', '').strip().upper()
-        # QB: Passing (ATT,CMP,YDS,TDS,INTS), Rushing (ATT,YDS,TDS), FL, FPTS
+        # Infer position by columns present
+        if 'CMP' in row and 'INTS' in row:
+            pos = 'QB'
+        elif 'ATT' in row and 'REC' in row and 'TDS' in row and 'YDS' in row and 'FPTS' in row and len(row) == 10:
+            pos = 'RB'
+        elif 'ATT' in row and 'REC' in row and 'TDS' in row and 'YDS' in row and 'FPTS' in row and len(row) == 10:
+            pos = 'WR'
+        elif 'REC' in row and 'TDS' in row and 'YDS' in row and 'FPTS' in row and len(row) == 7:
+            pos = 'TE'
+        else:
+            pos = row.get('position', '').strip().upper() or 'RB'
+        # Map columns by position
         if pos == 'QB':
             mapped = {
                 'player_id': row['Player'],
                 'team': row['Team'],
-                'passing_yds': row['YDS'],  # 1st YDS (passing)
-                'passing_tds': row['TDS'],  # 1st TDS (passing)
-                'rushing_yds': row.iloc[8], # 2nd YDS (rushing)
-                'rushing_tds': row.iloc[10],# 2nd TDS (rushing)
+                'passing_yds': row['YDS'],  # Passing YDS (col 5)
+                'passing_tds': row['TDS'],  # Passing TDS (col 6)
+                'rushing_yds': row.iloc[8], # Rushing YDS (col 9)
+                'rushing_tds': row.iloc[10],# Rushing TDS (col 10)
                 'receptions': 0,
                 'receiving_yds': 0,
                 'receiving_tds': 0,
                 'position': 'QB',
                 'team': row['Team'],
             }
-        # RB: Rushing (ATT,YDS,TDS), Receiving (REC,YDS,TDS), FL, FPTS
         elif pos == 'RB':
             mapped = {
                 'player_id': row['Player'],
                 'team': row['Team'],
-                'rushing_yds': row['YDS'],  # 1st YDS (rushing)
-                'rushing_tds': row['TDS'],  # 1st TDS (rushing)
-                'receptions': row['REC'],   # 2nd REC (receiving)
-                'receiving_yds': row.iloc[8], # 2nd YDS (receiving)
-                'receiving_tds': row.iloc[10],# 2nd TDS (receiving)
+                'rushing_yds': row['YDS'],  # Rushing YDS (col 4)
+                'rushing_tds': row['TDS'],  # Rushing TDS (col 5)
+                'receptions': row['REC'],   # Receiving REC (col 6)
+                'receiving_yds': row.iloc[7], # Receiving YDS (col 7)
+                'receiving_tds': row.iloc[8],# Receiving TDS (col 8)
                 'passing_yds': 0,
                 'passing_tds': 0,
                 'position': 'RB',
                 'team': row['Team'],
             }
-        # WR/TE: Receiving (REC,YDS,TDS), Rushing (ATT,YDS,TDS), FL, FPTS
-        else:  # WR or TE
+        elif pos == 'WR':
             mapped = {
                 'player_id': row['Player'],
                 'team': row['Team'],
-                'receptions': row['REC'],   # 1st REC (receiving)
-                'receiving_yds': row['YDS'], # 1st YDS (receiving)
-                'receiving_tds': row['TDS'], # 1st TDS (receiving)
-                'rushing_yds': row.iloc[8], # 2nd YDS (rushing)
-                'rushing_tds': row.iloc[10],# 2nd TDS (rushing)
+                'receptions': row['REC'],   # Receiving REC (col 3)
+                'receiving_yds': row['YDS'], # Receiving YDS (col 4)
+                'receiving_tds': row['TDS'], # Receiving TDS (col 5)
+                'rushing_yds': row.iloc[7], # Rushing YDS (col 7)
+                'rushing_tds': row.iloc[8],# Rushing TDS (col 8)
+                'passing_yds': 0,
+                'passing_tds': 0,
+                'position': 'WR',
+                'team': row['Team'],
+            }
+        elif pos == 'TE':
+            mapped = {
+                'player_id': row['Player'],
+                'team': row['Team'],
+                'receptions': row['REC'],   # Receiving REC (col 3)
+                'receiving_yds': row['YDS'], # Receiving YDS (col 4)
+                'receiving_tds': row['TDS'], # Receiving TDS (col 5)
+                'rushing_yds': 0,
+                'rushing_tds': 0,
+                'passing_yds': 0,
+                'passing_tds': 0,
+                'position': 'TE',
+                'team': row['Team'],
+            }
+        else:
+            mapped = {
+                'player_id': row['Player'],
+                'team': row['Team'],
+                'receptions': 0,
+                'receiving_yds': 0,
+                'receiving_tds': 0,
+                'rushing_yds': 0,
+                'rushing_tds': 0,
                 'passing_yds': 0,
                 'passing_tds': 0,
                 'position': pos,
