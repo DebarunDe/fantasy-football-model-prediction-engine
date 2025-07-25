@@ -19,7 +19,7 @@ def download_fantasypros_projections():
     for pos, url in FANTASYPROS_URLS.items():
         print(f"[INFO] Downloading FantasyPros projections for {pos}...")
         try:
-            df = pd.read_excel(url)
+            df = pd.read_excel(url, engine='xlrd')
             df['position'] = POSITION_MAP[pos]
             dfs.append(df)
         except Exception as e:
