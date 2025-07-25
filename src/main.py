@@ -3,13 +3,14 @@ import pandas as pd
 import traceback
 from projections_collection import download_fantasypros_projections
 from data_collection import (
-    download_nflfastr_csv,
-    load_nflfastr_data,
+    load_nflfastr_multi_years,
     calculate_team_pace
 )
 from transformation import calculate_fantasy_points, extract_player_availability
 from weighting import injury_weight, team_context_weight
 from ranking import rank_players, export_to_excel
+from rapidfuzz import process, fuzz
+import re
 
 def map_fantasypros_to_pipeline(df):
     # Map FantasyPros columns to pipeline stat fields
@@ -43,6 +44,45 @@ def map_fantasypros_to_pipeline(df):
             mapped_df[stat] = ''
     return mapped_df
 
+def normalize_name(name):
+    name = str(name).lower()
+    name = re.sub(r'\b(jr|sr|ii|iii|iv|v)\b', '', name)
+    name = re.sub(r'[^a-z ]', '', name)
+    name = re.sub(r'\s+', ' ', name).strip()
+    return name
+
+def build_name_map(fantasypros_names, nflfastr_names, threshold=90):
+    nflfastr_names_norm = [normalize_name(n) for n in nflfastr_names]
+    name_map = {}
+    for fp_name in fantasypros_names:
+        fp_norm = normalize_name(fp_name)
+        match, score, idx = process.extractOne(fp_norm, nflfastr_names_norm, scorer=fuzz.ratio)
+        if score >= threshold:
+            name_map[fp_name] = nflfastr_names[idx]
+        else:
+            name_map[fp_name] = None
+    return name_map
+
+def calculate_expected_games(nflfastr_df, props_df):
+    if nflfastr_df.empty:
+        return {}
+    reg = nflfastr_df[nflfastr_df['season_type'] == 'REG']
+    player_games = reg.groupby(['player_name', 'season'])['game_id'].nunique().reset_index()
+    avg_games = player_games.groupby('player_name')['game_id'].mean().to_dict()
+    # Fuzzy match FantasyPros names to nflfastR names
+    fp_names = props_df['player_id'].unique().tolist()
+    nf_names = list(avg_games.keys())
+    name_map = build_name_map(fp_names, nf_names, threshold=90)
+    # Build expected games dict for FantasyPros names
+    expected_games = {}
+    for fp_name in fp_names:
+        nf_name = name_map[fp_name]
+        if nf_name and nf_name in avg_games:
+            expected_games[fp_name] = avg_games[nf_name]
+        else:
+            expected_games[fp_name] = 17  # Assume 17 for rookies/unmatched
+    return expected_games
+
 def main():
     try:
         print('[INFO] Downloading FantasyPros projections...')
@@ -53,13 +93,10 @@ def main():
         print(f'[INFO] Downloaded {len(props_df_raw)} player projections.')
         props_df = map_fantasypros_to_pipeline(props_df_raw)
         print(f'[INFO] Mapped projections to pipeline format: {len(props_df)} players.')
-        print('[INFO] Downloading nflfastR data...')
-        try:
-            csv_path = download_nflfastr_csv(season=2023)
-            nflfastr_df = load_nflfastr_data(csv_path)
-        except Exception as e:
-            print(f'[ERROR] Failed to download or load nflfastR data: {e}')
-            traceback.print_exc()
+        print('[INFO] Downloading and loading last two years of nflfastR data...')
+        nflfastr_df = load_nflfastr_multi_years(n=2)
+        if nflfastr_df.empty:
+            print('[ERROR] No nflfastR data loaded.')
             return
         try:
             team_pace_df = calculate_team_pace(nflfastr_df)
@@ -71,14 +108,17 @@ def main():
         league_avg_wins = 9
         league_avg_plays = team_pace_df['plays_per_game'].mean()
         print(f'[INFO] League averages - Points: {league_avg_points:.2f}, Wins: {league_avg_wins}, Plays: {league_avg_plays:.2f}')
+        print('[INFO] Calculating expected games played for each player (fuzzy matching)...')
+        avg_games_dict = calculate_expected_games(nflfastr_df, props_df)
         print('[INFO] Calculating fantasy points and applying weights...')
         results = []
         for idx, row in props_df.iterrows():
             player_id = row['player_id']
             team = row['team']
             position = row.get('position', 'RB')
+            expected_games = avg_games_dict.get(player_id, 17)
             try:
-                games_played, age, pos = extract_player_availability(nflfastr_df, player_id)
+                games_played, age, pos = expected_games, None, position
             except Exception as e:
                 print(f'[WARN] Could not extract availability for {player_id}: {e}')
                 games_played, age, pos = 17, None, position
@@ -92,7 +132,7 @@ def main():
                 print(f'[WARN] Could not calculate fantasy points for {player_id}: {e}')
                 raw_points = 0
             try:
-                inj_weight = injury_weight(games_played, age, pos)
+                inj_weight = games_played / 17.0
             except Exception as e:
                 print(f'[WARN] Could not calculate injury weight for {player_id}: {e}')
                 inj_weight = 1.0
@@ -106,8 +146,7 @@ def main():
             weighted_points = raw_points * inj_weight * team_weight
             results.append({
                 **row,
-                'games_played': games_played,
-                'age': age,
+                'expected_games': games_played,
                 'position': pos,
                 'raw_fantasy_points': raw_points,
                 'injury_weight': inj_weight,

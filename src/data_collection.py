@@ -45,7 +45,18 @@ def get_event_markets_v0(event_key, api_key):
 def get_market_outcomes_v0(market_key, api_key):
     return sportsbookapi_request(f"/v0/markets/{market_key}/outcomes", api_key=api_key)
 
-def download_nflfastr_csv(season=2023, out_path=None):
+def get_latest_nflfastr_seasons(n=2):
+    # nflfastR data is available for each season as play_by_play_{year}.csv.gz
+    # We'll assume the latest two years are the last two NFL seasons (e.g., 2024, 2023)
+    current_year = datetime.now().year
+    # NFL season ends in Feb, so if before August, last season is previous year
+    if datetime.now().month < 8:
+        latest = current_year - 1
+    else:
+        latest = current_year
+    return [str(latest - i) for i in range(n)]
+
+def download_nflfastr_csv(season, out_path=None):
     base_url = f"https://github.com/nflverse/nflfastR-data/releases/download/play_by_play_{season}/play_by_play_{season}.csv.gz"
     if out_path is None:
         out_path = f"play_by_play_{season}.csv.gz"
@@ -55,6 +66,23 @@ def download_nflfastr_csv(season=2023, out_path=None):
         for chunk in r.iter_content(chunk_size=8192):
             f.write(chunk)
     return out_path
+
+def load_nflfastr_multi_years(n=2):
+    seasons = get_latest_nflfastr_seasons(n)
+    dfs = []
+    for season in seasons:
+        print(f"[INFO] Downloading and loading nflfastR data for {season}...")
+        try:
+            csv_path = download_nflfastr_csv(season)
+            df = pd.read_csv(csv_path, compression='gzip', low_memory=False)
+            dfs.append(df)
+        except Exception as e:
+            print(f"[WARN] Could not download or load nflfastR data for {season}: {e}")
+    if not dfs:
+        print("[ERROR] No nflfastR data loaded.")
+        return pd.DataFrame()
+    all_df = pd.concat(dfs, ignore_index=True)
+    return all_df
 
 def load_nflfastr_data(csv_path):
     return pd.read_csv(csv_path, compression='gzip', low_memory=False)
