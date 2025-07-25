@@ -1,12 +1,10 @@
 import pandas as pd
-import requests
-from io import BytesIO
 
-FANTASYPROS_URLS = {
-    'QB': 'https://www.fantasypros.com/nfl/projections/qb.php?export=xls',
-    'RB': 'https://www.fantasypros.com/nfl/projections/rb.php?export=xls',
-    'WR': 'https://www.fantasypros.com/nfl/projections/wr.php?export=xls',
-    'TE': 'https://www.fantasypros.com/nfl/projections/te.php?export=xls',
+FANTASYPROS_LOCAL_FILES = {
+    'QB': 'data/FantasyPros_Fantasy_Football_Projections_QB.xls',
+    'RB': 'data/FantasyPros_Fantasy_Football_Projections_RB.xls',
+    'WR': 'data/FantasyPros_Fantasy_Football_Projections_WR.xls',
+    'TE': 'data/FantasyPros_Fantasy_Football_Projections_TE.xls',
 }
 
 POSITION_MAP = {
@@ -16,26 +14,18 @@ POSITION_MAP = {
     'TE': 'TE',
 }
 
-def download_fantasypros_excel(url):
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-    resp = requests.get(url, headers=headers)
-    resp.raise_for_status()
-    return pd.read_excel(BytesIO(resp.content), engine='xlrd')
-
 def download_fantasypros_projections():
     dfs = []
-    for pos, url in FANTASYPROS_URLS.items():
-        print(f"[INFO] Downloading FantasyPros projections for {pos}...")
+    for pos, path in FANTASYPROS_LOCAL_FILES.items():
+        print(f"[INFO] Reading FantasyPros projections for {pos} from {path}...")
         try:
-            df = download_fantasypros_excel(url)
+            df = pd.read_excel(path, engine='xlrd')
             df['position'] = POSITION_MAP[pos]
             dfs.append(df)
         except Exception as e:
-            print(f"[WARN] Could not download or parse {pos} projections: {e}")
+            print(f"[WARN] Could not read {pos} projections: {e}")
     if not dfs:
-        print("[ERROR] No projections downloaded from FantasyPros.")
+        print("[ERROR] No projections loaded from FantasyPros.")
         return pd.DataFrame()
     all_proj = pd.concat(dfs, ignore_index=True)
     return all_proj 
