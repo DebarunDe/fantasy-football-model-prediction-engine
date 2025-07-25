@@ -67,20 +67,28 @@ def calculate_expected_games(nflfastr_df, props_df):
     if nflfastr_df.empty:
         return {}
     reg = nflfastr_df[nflfastr_df['season_type'] == 'REG']
-    player_games = reg.groupby(['player_name', 'season'])['game_id'].nunique().reset_index()
-    avg_games = player_games.groupby('player_name')['game_id'].mean().to_dict()
-    # Fuzzy match FantasyPros names to nflfastR names
+    # Use fantasy_player_name if present, else melt rusher/receiver/passer columns
+    if 'fantasy_player_name' in reg.columns:
+        player_games = reg.groupby(['fantasy_player_name', 'season'])['game_id'].nunique().reset_index()
+        avg_games = player_games.groupby('fantasy_player_name')['game_id'].mean().to_dict()
+        nf_names = list(avg_games.keys())
+    else:
+        # Fallback: stack rusher/receiver/passer columns
+        name_cols = [col for col in ['rusher_player_name', 'receiver_player_name', 'passer_player_name'] if col in reg.columns]
+        melted = pd.melt(reg, id_vars=['game_id', 'season'], value_vars=name_cols, value_name='player_name')
+        melted = melted.dropna(subset=['player_name'])
+        player_games = melted.groupby(['player_name', 'season'])['game_id'].nunique().reset_index()
+        avg_games = player_games.groupby('player_name')['game_id'].mean().to_dict()
+        nf_names = list(avg_games.keys())
     fp_names = props_df['player_id'].unique().tolist()
-    nf_names = list(avg_games.keys())
     name_map = build_name_map(fp_names, nf_names, threshold=90)
-    # Build expected games dict for FantasyPros names
     expected_games = {}
     for fp_name in fp_names:
         nf_name = name_map[fp_name]
         if nf_name and nf_name in avg_games:
             expected_games[fp_name] = avg_games[nf_name]
         else:
-            expected_games[fp_name] = 17  # Assume 17 for rookies/unmatched
+            expected_games[fp_name] = 17
     return expected_games
 
 def main():
