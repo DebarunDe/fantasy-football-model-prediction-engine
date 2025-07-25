@@ -17,17 +17,8 @@ def map_fantasypros_to_pipeline(df):
     df = df[df['Player'].notnull() & (df['Player'].str.strip() != '')]
     mapped_rows = []
     for _, row in df.iterrows():
-        # Infer position by columns present
-        if 'CMP' in row and 'INTS' in row:
-            pos = 'QB'
-        elif 'ATT' in row and 'REC' in row and 'TDS' in row and 'YDS' in row and 'FPTS' in row and len(row) == 10:
-            pos = 'RB'
-        elif 'ATT' in row and 'REC' in row and 'TDS' in row and 'YDS' in row and 'FPTS' in row and len(row) == 10:
-            pos = 'WR'
-        elif 'REC' in row and 'TDS' in row and 'YDS' in row and 'FPTS' in row and len(row) == 7:
-            pos = 'TE'
-        else:
-            pos = row.get('position', '').strip().upper() or 'RB'
+        # Use the position column that was already set in projections_collection.py
+        pos = row.get('position', '').strip().upper()
         # Map columns by position
         if pos == 'QB':
             mapped = {

@@ -19,7 +19,8 @@ def download_fantasypros_projections():
     for pos, path in FANTASYPROS_LOCAL_FILES.items():
         print(f"[INFO] Reading FantasyPros projections for {pos} from {path}...")
         try:
-            df = pd.read_csv(path)
+            # Read CSV with proper settings to handle the format
+            df = pd.read_csv(path, skiprows=1)  # Skip the blank row after header
             df['position'] = POSITION_MAP[pos]
             dfs.append(df)
         except Exception as e:
