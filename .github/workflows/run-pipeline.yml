@@ -1,0 +1,34 @@
+name: Run Fantasy Football Model Pipeline
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 12 * * 1' # Runs every Monday at 12:00 UTC
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run pipeline
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          python src/main.py
+
+      - name: Upload Excel output
+        uses: actions/upload-artifact@v3
+        with:
+          name: fantasy-big-board
+          path: fantasy_big_board.xlsx 
