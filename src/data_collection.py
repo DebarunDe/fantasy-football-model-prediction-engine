@@ -1,6 +1,7 @@
 import os
 import requests
 import pandas as pd
+from datetime import datetime
 
 SPORTSBOOKAPI_BASE = "https://sportsbook-api2.p.rapidapi.com"
 
@@ -16,30 +17,24 @@ def sportsbookapi_request(endpoint, params=None, api_key=None):
     response.raise_for_status()
     return response.json()
 
-def get_nfl_competition_key(api_key):
+def get_nfl_season_key(api_key):
     data = sportsbookapi_request("/v0/competitions/", params={"includeInstances": "true"}, api_key=api_key)
-    print("[DEBUG] /v0/competitions/ response:", data)
-    # If the response is a dict, look for a key containing the competitions list
-    if isinstance(data, dict):
-        # Try common keys
-        for key in ["competitions", "data", "results"]:
-            if key in data and isinstance(data[key], list):
-                competitions = data[key]
-                break
-        else:
-            # If no known key, try all values
-            competitions = []
-            for v in data.values():
-                if isinstance(v, list):
-                    competitions.extend(v)
-    elif isinstance(data, list):
-        competitions = data
-    else:
-        raise ValueError("Unexpected /v0/competitions/ response structure")
+    competitions = data.get("competitions", [])
+    today = datetime.utcnow().date()
+    nfl_instances = []
     for comp in competitions:
-        if isinstance(comp, dict) and "NFL" in comp.get("name", ""):
-            return comp["key"]
-    raise ValueError("NFL competition not found in /v0/competitions/")
+        if comp.get("slug") == "national-football-league":
+            for instance in comp.get("competitionInstances", []):
+                start_str = instance.get("startAt")
+                if start_str:
+                    start_date = datetime.fromisoformat(start_str.replace("Z", "")).date()
+                    if start_date >= today:
+                        nfl_instances.append((start_date, instance["key"]))
+    if not nfl_instances:
+        raise ValueError("No upcoming NFL season found in /v0/competitions/")
+    # Return the soonest upcoming season
+    nfl_instances.sort()
+    return nfl_instances[0][1]
 
 def get_nfl_events_v0(competition_key, api_key):
     return sportsbookapi_request(f"/v0/competitions/{competition_key}/events", api_key=api_key)

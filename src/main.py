@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import traceback
 from data_collection import (
-    get_nfl_competition_key,
+    get_nfl_season_key,
     get_nfl_events_v0,
     get_event_markets_v0,
     get_market_outcomes_v0,
@@ -83,14 +83,14 @@ def main():
         if not api_key:
             print('[ERROR] SPORTSBOOKAPI_KEY environment variable not set')
             return
-        print('[INFO] Fetching NFL competition key from SportsbookAPI...')
+        print('[INFO] Fetching NFL season key from SportsbookAPI...')
         try:
-            competition_key = get_nfl_competition_key(api_key)
+            competition_key = get_nfl_season_key(api_key)
         except Exception as e:
-            print(f'[ERROR] Failed to fetch NFL competition key: {e}')
+            print(f'[ERROR] Failed to fetch NFL season key: {e}')
             traceback.print_exc()
             return
-        print(f'[INFO] NFL competition key: {competition_key}')
+        print(f'[INFO] NFL season key: {competition_key}')
         print('[INFO] Fetching NFL events from SportsbookAPI...')
         try:
             events_data = get_nfl_events_v0(competition_key, api_key)
