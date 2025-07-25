@@ -1,10 +1,10 @@
 import pandas as pd
 
 FANTASYPROS_LOCAL_FILES = {
-    'QB': 'data/FantasyPros_Fantasy_Football_Projections_QB.xls',
-    'RB': 'data/FantasyPros_Fantasy_Football_Projections_RB.xls',
-    'WR': 'data/FantasyPros_Fantasy_Football_Projections_WR.xls',
-    'TE': 'data/FantasyPros_Fantasy_Football_Projections_TE.xls',
+    'QB': 'data/FantasyPros_Fantasy_Football_Projections_QB.csv',
+    'RB': 'data/FantasyPros_Fantasy_Football_Projections_RB.csv',
+    'WR': 'data/FantasyPros_Fantasy_Football_Projections_WR.csv',
+    'TE': 'data/FantasyPros_Fantasy_Football_Projections_TE.csv',
 }
 
 POSITION_MAP = {
@@ -19,7 +19,7 @@ def download_fantasypros_projections():
     for pos, path in FANTASYPROS_LOCAL_FILES.items():
         print(f"[INFO] Reading FantasyPros projections for {pos} from {path}...")
         try:
-            df = pd.read_excel(path, engine='xlrd')
+            df = pd.read_csv(path)
             df['position'] = POSITION_MAP[pos]
             dfs.append(df)
         except Exception as e:
