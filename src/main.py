@@ -1,11 +1,8 @@
 import os
 import pandas as pd
 import traceback
+from projections_collection import download_fantasypros_projections
 from data_collection import (
-    get_nfl_season_key,
-    get_nfl_events_v0,
-    get_event_markets_v0,
-    get_market_outcomes_v0,
     download_nflfastr_csv,
     load_nflfastr_data,
     calculate_team_pace
@@ -14,117 +11,48 @@ from transformation import calculate_fantasy_points, extract_player_availability
 from weighting import injury_weight, team_context_weight
 from ranking import rank_players, export_to_excel
 
-def parse_sportsbookapi_v0_player_props(events_data, api_key):
-    all_props = []
-    if not isinstance(events_data, list):
-        print("[ERROR] events_data is not a list:", events_data)
-        return pd.DataFrame()
-    print(f"[DEBUG] Number of events to process: {len(events_data)}")
-    for event in events_data:
-        if not isinstance(event, dict):
-            continue  # Skip any non-dict items
-        event_key = event.get('key')
-        home_team = event.get('homeParticipant', {}).get('name')
-        away_team = event.get('awayParticipant', {}).get('name')
-        try:
-            markets = get_event_markets_v0(event_key, api_key)
-        except Exception as e:
-            print(f'[WARN] Could not fetch markets for event {event_key}: {e}')
-            continue
-        if not isinstance(markets, list):
-            print(f'[WARN] Markets for event {event_key} is not a list: {markets}')
-            continue
-        for market in markets:
-            if not isinstance(market, dict):
-                continue
-            market_name = market.get('name', '').lower()
-            if not any(x in market_name for x in ['passing yards', 'rushing yards', 'receiving yards', 'receptions', 'touchdowns']):
-                continue
-            try:
-                outcomes = get_market_outcomes_v0(market['key'], api_key)
-            except Exception as e:
-                print(f'[WARN] Could not fetch outcomes for market {market.get("key")}: {e}')
-                continue
-            if not isinstance(outcomes, list):
-                print(f'[WARN] Outcomes for market {market.get("key")} is not a list: {outcomes}')
-                continue
-            for outcome in outcomes:
-                if not isinstance(outcome, dict):
-                    continue
-                player = outcome.get('participant', {}).get('name')
-                team = outcome.get('participant', {}).get('team', {}).get('name')
-                stat_type = market.get('name', '').lower()
-                value = outcome.get('line')
-                stat_map = {
-                    'rushing yards': 'rushing_yds',
-                    'rushing touchdowns': 'rushing_tds',
-                    'receptions': 'receptions',
-                    'receiving yards': 'receiving_yds',
-                    'receiving touchdowns': 'receiving_tds',
-                    'passing yards': 'passing_yds',
-                    'passing touchdowns': 'passing_tds',
-                }
-                mapped_stat = None
-                for k, v in stat_map.items():
-                    if k in stat_type:
-                        mapped_stat = v
-                        break
-                if not mapped_stat or player is None:
-                    continue
-                match = next((p for p in all_props if p['player_id'] == player and p['team'] == team), None)
-                if not match:
-                    match = {
-                        'player_id': player,
-                        'team': team,
-                        'rushing_yds': 0,
-                        'rushing_tds': 0,
-                        'receptions': 0,
-                        'receiving_yds': 0,
-                        'receiving_tds': 0,
-                        'passing_yds': 0,
-                        'passing_tds': 0,
-                        'position': 'RB',  # Default, can be improved
-                    }
-                    all_props.append(match)
-                match[mapped_stat] = value
-    print(f"[DEBUG] Number of player prop rows parsed: {len(all_props)}")
-    return pd.DataFrame(all_props)
+def map_fantasypros_to_pipeline(df):
+    # Map FantasyPros columns to pipeline stat fields
+    col_map = {
+        'Player': 'player_id',
+        'Team': 'team',
+        'Rush Yds': 'rushing_yds',
+        'Rush TD': 'rushing_tds',
+        'Rec': 'receptions',
+        'Rec Yds': 'receiving_yds',
+        'Rec TD': 'receiving_tds',
+        'Pass Yds': 'passing_yds',
+        'Pass TD': 'passing_tds',
+        'position': 'position',
+    }
+    # Only keep columns that exist in the DataFrame
+    mapped = {}
+    for k, v in col_map.items():
+        if k in df.columns:
+            mapped[v] = df[k]
+        else:
+            mapped[v] = 0  # Fill missing columns with 0
+    mapped_df = pd.DataFrame(mapped)
+    # Fill missing stat columns with 0
+    for stat in ['rushing_yds','rushing_tds','receptions','receiving_yds','receiving_tds','passing_yds','passing_tds']:
+        if stat not in mapped_df.columns:
+            mapped_df[stat] = 0
+    # Fill missing team/position with empty string
+    for stat in ['team','position']:
+        if stat not in mapped_df.columns:
+            mapped_df[stat] = ''
+    return mapped_df
 
 def main():
     try:
-        api_key = os.getenv('SPORTSBOOKAPI_KEY')
-        if not api_key:
-            print('[ERROR] SPORTSBOOKAPI_KEY environment variable not set')
+        print('[INFO] Downloading FantasyPros projections...')
+        props_df_raw = download_fantasypros_projections()
+        if props_df_raw.empty:
+            print('[ERROR] No player projections found from FantasyPros.')
             return
-        print('[INFO] Fetching NFL season key from SportsbookAPI...')
-        try:
-            competition_key = get_nfl_season_key(api_key)
-        except Exception as e:
-            print(f'[ERROR] Failed to fetch NFL season key: {e}')
-            traceback.print_exc()
-            return
-        print(f'[INFO] NFL season key: {competition_key}')
-        print('[INFO] Fetching NFL events from SportsbookAPI...')
-        try:
-            events_data_raw = get_nfl_events_v0(competition_key, api_key)
-            if isinstance(events_data_raw, dict) and 'events' in events_data_raw:
-                events_data = events_data_raw['events']
-            else:
-                events_data = events_data_raw if isinstance(events_data_raw, list) else []
-        except Exception as e:
-            print(f'[ERROR] Failed to fetch NFL events: {e}')
-            traceback.print_exc()
-            return
-        if not events_data:
-            print('[ERROR] No NFL events found for the upcoming season.')
-            return
-        print(f'[INFO] Found {len(events_data)} NFL events.')
-        print('[INFO] Fetching player props for all events (may take a while)...')
-        props_df = parse_sportsbookapi_v0_player_props(events_data, api_key)
-        if props_df.empty:
-            print('[ERROR] No player props found from SportsbookAPI.')
-            return
-        print(f'[INFO] Parsed {len(props_df)} player props.')
+        print(f'[INFO] Downloaded {len(props_df_raw)} player projections.')
+        props_df = map_fantasypros_to_pipeline(props_df_raw)
+        print(f'[INFO] Mapped projections to pipeline format: {len(props_df)} players.')
         print('[INFO] Downloading nflfastR data...')
         try:
             csv_path = download_nflfastr_csv(season=2023)
@@ -139,7 +67,7 @@ def main():
             print(f'[ERROR] Failed to calculate team pace: {e}')
             traceback.print_exc()
             return
-        league_avg_points = 22  # Placeholder, as we don't have implied points from SportsbookAPI
+        league_avg_points = 22  # Placeholder, as we don't have implied points from FantasyPros
         league_avg_wins = 9
         league_avg_plays = team_pace_df['plays_per_game'].mean()
         print(f'[INFO] League averages - Points: {league_avg_points:.2f}, Wins: {league_avg_wins}, Plays: {league_avg_plays:.2f}')
