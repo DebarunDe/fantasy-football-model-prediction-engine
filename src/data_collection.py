@@ -21,8 +21,8 @@ def get_nfl_events(api_key):
     return sportsbookapi_request("/events", {"leagueID": "NFL", "oddsAvailable": "true"}, api_key)
 
 def get_event_player_props(event_id, api_key):
-    # Get all player props for a given event
-    return sportsbookapi_request(f"/props/{event_id}", {}, api_key)
+    # Correct: eventID as query param, not path param
+    return sportsbookapi_request("/props", {"eventID": event_id}, api_key)
 
 def download_nflfastr_csv(season=2023, out_path=None):
     base_url = f"https://github.com/nflverse/nflfastR-data/releases/download/play_by_play_{season}/play_by_play_{season}.csv.gz"
