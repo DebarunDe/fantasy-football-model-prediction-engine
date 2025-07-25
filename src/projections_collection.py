@@ -1,4 +1,6 @@
 import pandas as pd
+import requests
+from io import BytesIO
 
 FANTASYPROS_URLS = {
     'QB': 'https://www.fantasypros.com/nfl/projections/qb.php?export=xls',
@@ -14,12 +16,20 @@ POSITION_MAP = {
     'TE': 'TE',
 }
 
+def download_fantasypros_excel(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
+    return pd.read_excel(BytesIO(resp.content), engine='xlrd')
+
 def download_fantasypros_projections():
     dfs = []
     for pos, url in FANTASYPROS_URLS.items():
         print(f"[INFO] Downloading FantasyPros projections for {pos}...")
         try:
-            df = pd.read_excel(url, engine='xlrd')
+            df = download_fantasypros_excel(url)
             df['position'] = POSITION_MAP[pos]
             dfs.append(df)
         except Exception as e:
