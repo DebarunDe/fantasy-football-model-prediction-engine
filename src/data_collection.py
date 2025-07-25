@@ -2,7 +2,7 @@ import os
 import requests
 import pandas as pd
 
-SPORTSBOOKAPI_BASE = "https://sportsbook-odds.p.rapidapi.com/v2"
+SPORTSBOOKAPI_BASE = "https://sportsbook-odds.p.rapidapi.com"
 
 # Helper to call SportsbookAPI
 
@@ -16,13 +16,21 @@ def sportsbookapi_request(endpoint, params=None, api_key=None):
     response.raise_for_status()
     return response.json()
 
-def get_nfl_events(api_key):
-    # Get all NFL events with odds available
-    return sportsbookapi_request("/events", {"leagueID": "NFL", "oddsAvailable": "true"}, api_key)
+def get_nfl_competition_key(api_key):
+    data = sportsbookapi_request("/v0/competitions/", api_key=api_key)
+    for comp in data:
+        if "NFL" in comp.get("name", ""):
+            return comp["key"]
+    raise ValueError("NFL competition not found in /v0/competitions/")
 
-def get_event_player_props(event_id, api_key):
-    # Correct: eventID as query param, not path param
-    return sportsbookapi_request("/props", {"eventID": event_id}, api_key)
+def get_nfl_events_v0(competition_key, api_key):
+    return sportsbookapi_request(f"/v0/competitions/{competition_key}/events", api_key=api_key)
+
+def get_event_markets_v0(event_key, api_key):
+    return sportsbookapi_request(f"/v0/events/{event_key}/markets", api_key=api_key)
+
+def get_market_outcomes_v0(market_key, api_key):
+    return sportsbookapi_request(f"/v0/markets/{market_key}/outcomes", api_key=api_key)
 
 def download_nflfastr_csv(season=2023, out_path=None):
     base_url = f"https://github.com/nflverse/nflfastR-data/releases/download/play_by_play_{season}/play_by_play_{season}.csv.gz"

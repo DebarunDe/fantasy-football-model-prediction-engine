@@ -2,8 +2,10 @@ import os
 import pandas as pd
 import traceback
 from data_collection import (
-    get_nfl_events,
-    get_event_player_props,
+    get_nfl_competition_key,
+    get_nfl_events_v0,
+    get_event_markets_v0,
+    get_market_outcomes_v0,
     download_nflfastr_csv,
     load_nflfastr_data,
     calculate_team_pace
@@ -12,26 +14,32 @@ from transformation import calculate_fantasy_points, extract_player_availability
 from weighting import injury_weight, team_context_weight
 from ranking import rank_players, export_to_excel
 
-def parse_sportsbookapi_player_props(events_data, api_key):
-    # For each event, fetch player props and parse them
+def parse_sportsbookapi_v0_player_props(events_data, api_key):
+    # For each event, fetch markets and outcomes, parse player props
     all_props = []
-    for event in events_data.get('events', []):
-        event_id = event.get('eventID')
-        home_team = event.get('homeTeam', {}).get('name')
-        away_team = event.get('awayTeam', {}).get('name')
+    for event in events_data:
+        event_key = event.get('key')
+        home_team = event.get('homeParticipant', {}).get('name')
+        away_team = event.get('awayParticipant', {}).get('name')
         try:
-            props_data = get_event_player_props(event_id, api_key)
+            markets = get_event_markets_v0(event_key, api_key)
         except Exception as e:
-            print(f'[WARN] Could not fetch props for event {event_id}: {e}')
+            print(f'[WARN] Could not fetch markets for event {event_key}: {e}')
             continue
-        for prop in props_data.get('props', []):
-            # Only include player props (filter out team/game props)
-            if prop.get('type') != 'player':
+        for market in markets:
+            market_name = market.get('name', '').lower()
+            # Only include player prop markets
+            if not any(x in market_name for x in ['passing yards', 'rushing yards', 'receiving yards', 'receptions', 'touchdowns']):
                 continue
-            for outcome in prop.get('outcomes', []):
-                player = outcome.get('player', {}).get('name')
-                team = outcome.get('team', {}).get('name')
-                stat_type = prop.get('name', '').lower()
+            try:
+                outcomes = get_market_outcomes_v0(market['key'], api_key)
+            except Exception as e:
+                print(f'[WARN] Could not fetch outcomes for market {market["key"]}: {e}')
+                continue
+            for outcome in outcomes:
+                player = outcome.get('participant', {}).get('name')
+                team = outcome.get('participant', {}).get('team', {}).get('name')
+                stat_type = market.get('name', '').lower()
                 value = outcome.get('line')
                 # Map stat_type to our columns
                 stat_map = {
@@ -43,7 +51,11 @@ def parse_sportsbookapi_player_props(events_data, api_key):
                     'passing yards': 'passing_yds',
                     'passing touchdowns': 'passing_tds',
                 }
-                mapped_stat = stat_map.get(stat_type)
+                mapped_stat = None
+                for k, v in stat_map.items():
+                    if k in stat_type:
+                        mapped_stat = v
+                        break
                 if not mapped_stat or player is None:
                     continue
                 # Find or create player row
@@ -71,16 +83,24 @@ def main():
         if not api_key:
             print('[ERROR] SPORTSBOOKAPI_KEY environment variable not set')
             return
+        print('[INFO] Fetching NFL competition key from SportsbookAPI...')
+        try:
+            competition_key = get_nfl_competition_key(api_key)
+        except Exception as e:
+            print(f'[ERROR] Failed to fetch NFL competition key: {e}')
+            traceback.print_exc()
+            return
+        print(f'[INFO] NFL competition key: {competition_key}')
         print('[INFO] Fetching NFL events from SportsbookAPI...')
         try:
-            events_data = get_nfl_events(api_key)
+            events_data = get_nfl_events_v0(competition_key, api_key)
         except Exception as e:
             print(f'[ERROR] Failed to fetch NFL events: {e}')
             traceback.print_exc()
             return
-        print(f'[INFO] Found {len(events_data.get("events", []))} NFL events.')
+        print(f'[INFO] Found {len(events_data)} NFL events.')
         print('[INFO] Fetching player props for all events (may take a while)...')
-        props_df = parse_sportsbookapi_player_props(events_data, api_key)
+        props_df = parse_sportsbookapi_v0_player_props(events_data, api_key)
         if props_df.empty:
             print('[ERROR] No player props found from SportsbookAPI.')
             return
