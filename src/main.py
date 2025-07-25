@@ -13,32 +13,72 @@ from rapidfuzz import process, fuzz
 import re
 
 def map_fantasypros_to_pipeline(df):
-    # Map FantasyPros columns to pipeline stat fields
-    col_map = {
-        'Player': 'player_id',
-        'Team': 'team',
-        'Rush Yds': 'rushing_yds',
-        'Rush TD': 'rushing_tds',
-        'Rec': 'receptions',
-        'Rec Yds': 'receiving_yds',
-        'Rec TD': 'receiving_tds',
-        'Pass Yds': 'passing_yds',
-        'Pass TD': 'passing_tds',
-        'position': 'position',
-    }
-    # Only keep columns that exist in the DataFrame
-    mapped = {}
-    for k, v in col_map.items():
-        if k in df.columns:
-            mapped[v] = df[k]
+    # Remove any blank header rows
+    df = df[df['Player'].notnull() & (df['Player'].str.strip() != '')]
+    # Determine position if not present
+    if 'position' not in df.columns:
+        if 'ATT' in df.columns and 'CMP' in df.columns:
+            pos = 'QB'
+        elif 'REC' in df.columns and 'YDS' in df.columns:
+            pos = 'WR'  # Could be WR or RB, will check below
         else:
-            mapped[v] = 0  # Fill missing columns with 0
-    mapped_df = pd.DataFrame(mapped)
+            pos = 'RB'  # Fallback
+        df['position'] = pos
+    # Map columns by position
+    mapped_rows = []
+    for _, row in df.iterrows():
+        pos = row.get('position', '').strip().upper()
+        # QB: Passing (ATT,CMP,YDS,TDS,INTS), Rushing (ATT,YDS,TDS), FL, FPTS
+        if pos == 'QB':
+            mapped = {
+                'player_id': row['Player'],
+                'team': row['Team'],
+                'passing_yds': row['YDS'],  # 1st YDS (passing)
+                'passing_tds': row['TDS'],  # 1st TDS (passing)
+                'rushing_yds': row.iloc[8], # 2nd YDS (rushing)
+                'rushing_tds': row.iloc[10],# 2nd TDS (rushing)
+                'receptions': 0,
+                'receiving_yds': 0,
+                'receiving_tds': 0,
+                'position': 'QB',
+                'team': row['Team'],
+            }
+        # RB: Rushing (ATT,YDS,TDS), Receiving (REC,YDS,TDS), FL, FPTS
+        elif pos == 'RB':
+            mapped = {
+                'player_id': row['Player'],
+                'team': row['Team'],
+                'rushing_yds': row['YDS'],  # 1st YDS (rushing)
+                'rushing_tds': row['TDS'],  # 1st TDS (rushing)
+                'receptions': row['REC'],   # 2nd REC (receiving)
+                'receiving_yds': row.iloc[8], # 2nd YDS (receiving)
+                'receiving_tds': row.iloc[10],# 2nd TDS (receiving)
+                'passing_yds': 0,
+                'passing_tds': 0,
+                'position': 'RB',
+                'team': row['Team'],
+            }
+        # WR/TE: Receiving (REC,YDS,TDS), Rushing (ATT,YDS,TDS), FL, FPTS
+        else:  # WR or TE
+            mapped = {
+                'player_id': row['Player'],
+                'team': row['Team'],
+                'receptions': row['REC'],   # 1st REC (receiving)
+                'receiving_yds': row['YDS'], # 1st YDS (receiving)
+                'receiving_tds': row['TDS'], # 1st TDS (receiving)
+                'rushing_yds': row.iloc[8], # 2nd YDS (rushing)
+                'rushing_tds': row.iloc[10],# 2nd TDS (rushing)
+                'passing_yds': 0,
+                'passing_tds': 0,
+                'position': pos,
+                'team': row['Team'],
+            }
+        mapped_rows.append(mapped)
+    mapped_df = pd.DataFrame(mapped_rows)
     # Fill missing stat columns with 0
     for stat in ['rushing_yds','rushing_tds','receptions','receiving_yds','receiving_tds','passing_yds','passing_tds']:
         if stat not in mapped_df.columns:
             mapped_df[stat] = 0
-    # Fill missing team/position with empty string
     for stat in ['team','position']:
         if stat not in mapped_df.columns:
             mapped_df[stat] = ''
