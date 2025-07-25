@@ -15,9 +15,14 @@ from weighting import injury_weight, team_context_weight
 from ranking import rank_players, export_to_excel
 
 def parse_sportsbookapi_v0_player_props(events_data, api_key):
-    # For each event, fetch markets and outcomes, parse player props
     all_props = []
+    if not isinstance(events_data, list):
+        print("[ERROR] events_data is not a list:", events_data)
+        return pd.DataFrame()
+    print(f"[DEBUG] Number of events to process: {len(events_data)}")
     for event in events_data:
+        if not isinstance(event, dict):
+            continue  # Skip any non-dict items
         event_key = event.get('key')
         home_team = event.get('homeParticipant', {}).get('name')
         away_team = event.get('awayParticipant', {}).get('name')
@@ -26,22 +31,30 @@ def parse_sportsbookapi_v0_player_props(events_data, api_key):
         except Exception as e:
             print(f'[WARN] Could not fetch markets for event {event_key}: {e}')
             continue
+        if not isinstance(markets, list):
+            print(f'[WARN] Markets for event {event_key} is not a list: {markets}')
+            continue
         for market in markets:
+            if not isinstance(market, dict):
+                continue
             market_name = market.get('name', '').lower()
-            # Only include player prop markets
             if not any(x in market_name for x in ['passing yards', 'rushing yards', 'receiving yards', 'receptions', 'touchdowns']):
                 continue
             try:
                 outcomes = get_market_outcomes_v0(market['key'], api_key)
             except Exception as e:
-                print(f'[WARN] Could not fetch outcomes for market {market["key"]}: {e}')
+                print(f'[WARN] Could not fetch outcomes for market {market.get("key")}: {e}')
+                continue
+            if not isinstance(outcomes, list):
+                print(f'[WARN] Outcomes for market {market.get("key")} is not a list: {outcomes}')
                 continue
             for outcome in outcomes:
+                if not isinstance(outcome, dict):
+                    continue
                 player = outcome.get('participant', {}).get('name')
                 team = outcome.get('participant', {}).get('team', {}).get('name')
                 stat_type = market.get('name', '').lower()
                 value = outcome.get('line')
-                # Map stat_type to our columns
                 stat_map = {
                     'rushing yards': 'rushing_yds',
                     'rushing touchdowns': 'rushing_tds',
@@ -58,7 +71,6 @@ def parse_sportsbookapi_v0_player_props(events_data, api_key):
                         break
                 if not mapped_stat or player is None:
                     continue
-                # Find or create player row
                 match = next((p for p in all_props if p['player_id'] == player and p['team'] == team), None)
                 if not match:
                     match = {
@@ -75,6 +87,7 @@ def parse_sportsbookapi_v0_player_props(events_data, api_key):
                     }
                     all_props.append(match)
                 match[mapped_stat] = value
+    print(f"[DEBUG] Number of player prop rows parsed: {len(all_props)}")
     return pd.DataFrame(all_props)
 
 def main():
@@ -97,6 +110,9 @@ def main():
         except Exception as e:
             print(f'[ERROR] Failed to fetch NFL events: {e}')
             traceback.print_exc()
+            return
+        if not isinstance(events_data, list):
+            print('[ERROR] NFL events data is not a list:', events_data)
             return
         print(f'[INFO] Found {len(events_data)} NFL events.')
         print('[INFO] Fetching player props for all events (may take a while)...')
