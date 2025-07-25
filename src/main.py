@@ -106,13 +106,17 @@ def main():
         print(f'[INFO] NFL season key: {competition_key}')
         print('[INFO] Fetching NFL events from SportsbookAPI...')
         try:
-            events_data = get_nfl_events_v0(competition_key, api_key)
+            events_data_raw = get_nfl_events_v0(competition_key, api_key)
+            if isinstance(events_data_raw, dict) and 'events' in events_data_raw:
+                events_data = events_data_raw['events']
+            else:
+                events_data = events_data_raw if isinstance(events_data_raw, list) else []
         except Exception as e:
             print(f'[ERROR] Failed to fetch NFL events: {e}')
             traceback.print_exc()
             return
-        if not isinstance(events_data, list):
-            print('[ERROR] NFL events data is not a list:', events_data)
+        if not events_data:
+            print('[ERROR] No NFL events found for the upcoming season.')
             return
         print(f'[INFO] Found {len(events_data)} NFL events.')
         print('[INFO] Fetching player props for all events (may take a while)...')
