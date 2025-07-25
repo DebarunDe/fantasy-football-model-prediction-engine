@@ -23,7 +23,7 @@ jobs:
 
       - name: Run pipeline
         env:
-          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          SPORTSBOOKAPI_KEY: ${{ secrets.SPORTSBOOKAPI_KEY }}
         run: |
           python src/main.py
 
