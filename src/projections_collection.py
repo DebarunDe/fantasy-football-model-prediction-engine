@@ -19,8 +19,10 @@ def download_fantasypros_projections():
     for pos, path in FANTASYPROS_LOCAL_FILES.items():
         print(f"[INFO] Reading FantasyPros projections for {pos} from {path}...")
         try:
-            # Read CSV with proper settings to handle the format
-            df = pd.read_csv(path, skiprows=1)  # Skip the blank row after header
+            # Read CSV with header, then filter out blank rows
+            df = pd.read_csv(path, header=0)
+            # Remove rows where Player column is empty or just whitespace
+            df = df[df['Player'].notnull() & (df['Player'].str.strip() != '')]
             df['position'] = POSITION_MAP[pos]
             dfs.append(df)
         except Exception as e:

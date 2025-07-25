@@ -13,8 +13,7 @@ from rapidfuzz import process, fuzz
 import re
 
 def map_fantasypros_to_pipeline(df):
-    # Remove any blank header rows
-    df = df[df['Player'].notnull() & (df['Player'].str.strip() != '')]
+    # Data is already cleaned in projections_collection.py
     mapped_rows = []
     for _, row in df.iterrows():
         # Use the position column that was already set in projections_collection.py
@@ -24,10 +23,10 @@ def map_fantasypros_to_pipeline(df):
             mapped = {
                 'player_id': row['Player'],
                 'team': row['Team'],
-                'passing_yds': row['YDS'],  # Passing YDS (col 5)
-                'passing_tds': row['TDS'],  # Passing TDS (col 6)
-                'rushing_yds': row.iloc[8], # Rushing YDS (col 9)
-                'rushing_tds': row.iloc[10],# Rushing TDS (col 10)
+                'passing_yds': row['YDS'],  # Passing YDS
+                'passing_tds': row['TDS'],  # Passing TDS
+                'rushing_yds': row['YDS.1'], # Rushing YDS
+                'rushing_tds': row['TDS.1'],# Rushing TDS
                 'receptions': 0,
                 'receiving_yds': 0,
                 'receiving_tds': 0,
@@ -38,11 +37,11 @@ def map_fantasypros_to_pipeline(df):
             mapped = {
                 'player_id': row['Player'],
                 'team': row['Team'],
-                'rushing_yds': row['YDS'],  # Rushing YDS (col 4)
-                'rushing_tds': row['TDS'],  # Rushing TDS (col 5)
-                'receptions': row['REC'],   # Receiving REC (col 6)
-                'receiving_yds': row.iloc[7], # Receiving YDS (col 7)
-                'receiving_tds': row.iloc[8],# Receiving TDS (col 8)
+                'rushing_yds': row['YDS'],  # Rushing YDS
+                'rushing_tds': row['TDS'],  # Rushing TDS
+                'receptions': row['REC'],   # Receiving REC
+                'receiving_yds': row['YDS.1'], # Receiving YDS
+                'receiving_tds': row['TDS.1'],# Receiving TDS
                 'passing_yds': 0,
                 'passing_tds': 0,
                 'position': 'RB',
@@ -52,11 +51,11 @@ def map_fantasypros_to_pipeline(df):
             mapped = {
                 'player_id': row['Player'],
                 'team': row['Team'],
-                'receptions': row['REC'],   # Receiving REC (col 3)
-                'receiving_yds': row['YDS'], # Receiving YDS (col 4)
-                'receiving_tds': row['TDS'], # Receiving TDS (col 5)
-                'rushing_yds': row.iloc[7], # Rushing YDS (col 7)
-                'rushing_tds': row.iloc[8],# Rushing TDS (col 8)
+                'receptions': row['REC'],   # Receiving REC
+                'receiving_yds': row['YDS'], # Receiving YDS
+                'receiving_tds': row['TDS'], # Receiving TDS
+                'rushing_yds': row['YDS.1'], # Rushing YDS
+                'rushing_tds': row['TDS.1'],# Rushing TDS
                 'passing_yds': 0,
                 'passing_tds': 0,
                 'position': 'WR',
@@ -66,9 +65,9 @@ def map_fantasypros_to_pipeline(df):
             mapped = {
                 'player_id': row['Player'],
                 'team': row['Team'],
-                'receptions': row['REC'],   # Receiving REC (col 3)
-                'receiving_yds': row['YDS'], # Receiving YDS (col 4)
-                'receiving_tds': row['TDS'], # Receiving TDS (col 5)
+                'receptions': row['REC'],   # Receiving REC
+                'receiving_yds': row['YDS'], # Receiving YDS
+                'receiving_tds': row['TDS'], # Receiving TDS
                 'rushing_yds': 0,
                 'rushing_tds': 0,
                 'passing_yds': 0,
@@ -101,7 +100,7 @@ def map_fantasypros_to_pipeline(df):
             mapped_df[stat] = ''
     # Ensure all stat columns are numeric
     for stat in ['rushing_yds','rushing_tds','receptions','receiving_yds','receiving_tds','passing_yds','passing_tds']:
-        mapped_df[stat] = pd.to_numeric(mapped_df[stat], errors='coerce').fillna(0)
+        mapped_df[stat] = pd.to_numeric(mapped_df[stat].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     return mapped_df
 
 def normalize_name(name):
