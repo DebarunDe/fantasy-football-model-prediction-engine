@@ -18,8 +18,26 @@ def sportsbookapi_request(endpoint, params=None, api_key=None):
 
 def get_nfl_competition_key(api_key):
     data = sportsbookapi_request("/v0/competitions/", params={"includeInstances": "true"}, api_key=api_key)
-    for comp in data:
-        if "NFL" in comp.get("name", ""):
+    print("[DEBUG] /v0/competitions/ response:", data)
+    # If the response is a dict, look for a key containing the competitions list
+    if isinstance(data, dict):
+        # Try common keys
+        for key in ["competitions", "data", "results"]:
+            if key in data and isinstance(data[key], list):
+                competitions = data[key]
+                break
+        else:
+            # If no known key, try all values
+            competitions = []
+            for v in data.values():
+                if isinstance(v, list):
+                    competitions.extend(v)
+    elif isinstance(data, list):
+        competitions = data
+    else:
+        raise ValueError("Unexpected /v0/competitions/ response structure")
+    for comp in competitions:
+        if isinstance(comp, dict) and "NFL" in comp.get("name", ""):
             return comp["key"]
     raise ValueError("NFL competition not found in /v0/competitions/")
 
