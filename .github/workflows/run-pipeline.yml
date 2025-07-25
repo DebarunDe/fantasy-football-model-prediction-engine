@@ -28,7 +28,7 @@ jobs:
           python src/main.py
 
       - name: Upload Excel output
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: fantasy-big-board
           path: fantasy_big_board.xlsx 
