@@ -342,17 +342,73 @@ def get_average_adp(league_size=12):
     print(f"[SUCCESS] Loaded Fantasy Football Calculator ADP data: {len(adp_df)} players (league size: {league_size})")
     return adp_df[['player_name', 'normalized_name', 'adp']]
 
+def validate_adp_data(adp_df):
+    """
+    Validate ADP data and filter out suspicious values.
+    """
+    print("[INFO] Validating ADP data quality...")
+    
+    # Filter out suspicious ADP values
+    suspicious_adp = adp_df[
+        (adp_df['adp'] < 1) |  # ADP below 1 is suspicious
+        (adp_df['adp'] > 200) |  # ADP above 200 is suspicious
+        (adp_df['adp'].isna())  # Missing ADP values
+    ]
+    
+    if not suspicious_adp.empty:
+        print(f"[WARNING] Found {len(suspicious_adp)} suspicious ADP values:")
+        for _, row in suspicious_adp.iterrows():
+            print(f"  {row['player_name']}: ADP {row['adp']}")
+    
+    # Filter out suspicious values
+    clean_adp = adp_df[
+        (adp_df['adp'] >= 1) & 
+        (adp_df['adp'] <= 200) & 
+        (adp_df['adp'].notna())
+    ]
+    
+    print(f"[INFO] Cleaned ADP data: {len(clean_adp)} players (removed {len(adp_df) - len(clean_adp)} suspicious values)")
+    return clean_adp
+
+def get_value_color(league_size_adjusted_diff):
+    """
+    Get color based on league-size-adjusted rank difference.
+    FIXED: Negative diff means our rank is better than ADP (BUY), positive diff means our rank is worse than ADP (AVOID)
+    Enhanced with more conservative thresholds for large differences.
+    """
+    if pd.isna(league_size_adjusted_diff):
+        return 'purple'  # Missing from ADP
+    
+    diff = league_size_adjusted_diff
+    
+    # More conservative thresholds for large differences
+    if diff <= -1.5:
+        return 'teal'      # Our rank is much better than ADP = Strong Buy
+    elif diff <= -0.8:
+        return 'green'     # Our rank is better than ADP = Buy
+    elif diff <= -0.3:
+        return 'light_green'  # Our rank is slightly better than ADP = Slight Buy
+    elif diff <= 0.3:
+        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid
+    elif diff <= 0.8:
+        return 'orange'    # Our rank is worse than ADP = Avoid
+    else:
+        return 'red'       # Our rank is much worse than ADP = Strong Avoid
+
 def match_players_to_adp(big_board_df, adp_df, league_size=12):
     """
     Match players from big board to ADP data and calculate value differences.
     Enhanced with better name matching and validation.
     """
+    # Validate and clean ADP data
+    clean_adp_df = validate_adp_data(adp_df)
+    
     # Normalize player names in big board
     big_board_df = big_board_df.copy()
     big_board_df['normalized_name'] = big_board_df['player_id'].apply(normalize_player_name)
     
     # Create a mapping from normalized names to ADP data
-    adp_dict = dict(zip(adp_df['normalized_name'], adp_df['adp']))
+    adp_dict = dict(zip(clean_adp_df['normalized_name'], clean_adp_df['adp']))
     
     # Match players using fuzzy matching with higher threshold
     matched_players = []
@@ -364,6 +420,13 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
         
         # Try exact match first
         if normalized_name in adp_dict:
+            matched_adp = adp_dict[normalized_name]
+            
+            # Additional validation for exact matches
+            rank_diff = abs(player['unified_rank'] - matched_adp)
+            if rank_diff > 100:  # Very large difference for exact match
+                print(f"[WARNING] Large rank difference for exact match: {player['player_id']} (our rank {player['unified_rank']} vs ADP {matched_adp})")
+            
             matched_players.append({
                 'player_id': player['player_id'],
                 'team': player.get('team', ''),
@@ -372,9 +435,9 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
                 'unified_big_board_score': player['unified_big_board_score'],
                 'raw_fantasy_points': player.get('raw_fantasy_points', 0),
                 'vor_final': player.get('vor_final', 0),
-                'adp': adp_dict[normalized_name],
-                'rank_difference': player['unified_rank'] - adp_dict[normalized_name],
-                'league_size_adjusted_diff': (player['unified_rank'] - adp_dict[normalized_name]) / league_size,
+                'adp': matched_adp,
+                'rank_difference': player['unified_rank'] - matched_adp,
+                'league_size_adjusted_diff': (player['unified_rank'] - matched_adp) / league_size,
                 'matched': True
             })
         else:
@@ -386,7 +449,7 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
                 # Additional validation: check if the match makes sense
                 # If there's a huge discrepancy between our rank and ADP, be suspicious
                 rank_diff = abs(player['unified_rank'] - matched_adp)
-                if rank_diff > 200:  # If rank difference is more than 200, log for review
+                if rank_diff > 50:  # Lowered threshold for fuzzy matches
                     print(f"[WARNING] Large rank difference for {player['player_id']}: our rank {player['unified_rank']} vs ADP {matched_adp} (diff: {rank_diff})")
                     print(f"[WARNING] Matched '{player['player_id']}' to '{best_match[0]}' with {best_match[1]}% similarity")
                     
@@ -446,49 +509,24 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
     
     return result_df
 
-def get_value_color(league_size_adjusted_diff):
-    """
-    Get color based on league-size-adjusted rank difference.
-    FIXED: Negative diff means our rank is better than ADP (BUY), positive diff means our rank is worse than ADP (AVOID)
-    """
-    if pd.isna(league_size_adjusted_diff):
-        return 'purple'  # Missing from ADP
-    
-    diff = league_size_adjusted_diff
-    
-    # FIXED LOGIC: Negative diff = our rank is better than ADP = BUY
-    # Positive diff = our rank is worse than ADP = AVOID
-    if diff <= -1.0:
-        return 'teal'      # Our rank is much better than ADP = Strong Buy
-    elif diff <= -0.5:
-        return 'green'     # Our rank is better than ADP = Buy
-    elif diff <= 0.0:
-        return 'light_green'  # Our rank is slightly better than ADP = Slight Buy
-    elif diff <= 0.5:
-        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid
-    elif diff <= 1.0:
-        return 'orange'    # Our rank is worse than ADP = Avoid
-    else:
-        return 'red'       # Our rank is much worse than ADP = Strong Avoid
-
 def create_adp_comparison_sheet(big_board_df, league_size=12):
     """
-    Create ADP comparison sheet with color coding using Fantasy Football Calculator data.
+    Create ADP comparison sheet with value recommendations.
     """
-    # Get ADP data with configurable league size
+    print(f"[INFO] Creating ADP comparison sheet (league size: {league_size})")
+    
+    # Get ADP data
     adp_df = get_average_adp(league_size)
     
-    # Match players
+    # Match players to ADP
     comparison_df = match_players_to_adp(big_board_df, adp_df, league_size)
     
-    # Add color coding
+    # Add value color and recommendation
     comparison_df['value_color'] = comparison_df['league_size_adjusted_diff'].apply(get_value_color)
     
-    # Add value recommendation
+    # Add value recommendation text
     def get_value_recommendation(color):
-        if color == 'purple':
-            return 'Not in ADP'
-        elif color == 'teal':
+        if color == 'teal':
             return 'Strong Buy'
         elif color == 'green':
             return 'Buy'
@@ -500,9 +538,14 @@ def create_adp_comparison_sheet(big_board_df, league_size=12):
             return 'Avoid'
         elif color == 'red':
             return 'Strong Avoid'
+        elif color == 'purple':
+            return 'Not in ADP'
         else:
-            return 'Fair Value'
+            return 'Unknown'
     
     comparison_df['value_recommendation'] = comparison_df['value_color'].apply(get_value_recommendation)
+    
+    print(f"[SUCCESS] Created ADP comparison with {len(comparison_df)} players")
+    print(f"[INFO] Value recommendations: {comparison_df['value_recommendation'].value_counts().to_dict()}")
     
     return comparison_df 

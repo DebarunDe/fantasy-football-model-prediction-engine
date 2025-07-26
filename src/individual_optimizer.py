@@ -245,20 +245,20 @@ def calculate_unified_big_board_score(df):
 
         # FantasyPros-like positional weighting
         if row['position'] == 'QB':
-            vor_weight = 0.18  # Lower VOR/points impact for QBs
-            scarcity_boost = 1.00
-            cap = 0.92  # Cap QB scores to 92% of their calculated value
+            vor_weight = 0.12  # Further reduced VOR/points impact for QBs
+            scarcity_boost = 0.90  # Further reduced scarcity boost for QBs
+            cap = 0.80  # More aggressive cap for QBs
         elif row['position'] == 'RB':
-            vor_weight = 0.48  # RBs get highest VOR/points impact
-            scarcity_boost = 1.10
+            vor_weight = 0.52  # Increased VOR/points impact for RBs
+            scarcity_boost = 1.15  # Increased scarcity boost for RBs
             cap = 1.0
         elif row['position'] == 'WR':
-            vor_weight = 0.38  # WRs get strong VOR/points impact
-            scarcity_boost = 1.06
+            vor_weight = 0.45  # Further increased VOR/points impact for WRs
+            scarcity_boost = 1.10  # Increased scarcity boost for WRs
             cap = 1.0
         elif row['position'] == 'TE':
-            vor_weight = 0.32  # TEs get moderate VOR/points impact
-            scarcity_boost = 1.12
+            vor_weight = 0.38  # Increased VOR/points impact for TEs
+            scarcity_boost = 1.18  # Increased scarcity boost for TEs
             cap = 1.0
         else:
             vor_weight = 0.30
@@ -268,37 +268,40 @@ def calculate_unified_big_board_score(df):
         # Position adjustment factor (to balance positions in unified ranking)
         position_factor = 1.0
         if row['position'] == 'QB':
-            position_factor = 1.0
+            position_factor = 0.85  # Further reduce QB position factor
         elif row['position'] == 'RB':
-            position_factor = 1.05
+            position_factor = 1.10  # Increase RB position factor
         elif row['position'] == 'WR':
-            position_factor = 1.02
+            position_factor = 1.08  # Increase WR position factor
         elif row['position'] == 'TE':
-            position_factor = 1.08
+            position_factor = 1.15  # Increase TE position factor
 
         # Position-specific volatility penalty (higher penalty for more volatile positions)
         volatility_penalty = 0
         if row['position'] == 'QB':
-            volatility_penalty = mc_volatility * 3  # QBs are more volatile
+            volatility_penalty = mc_volatility * 4  # Increased QB volatility penalty
         elif row['position'] == 'RB':
             volatility_penalty = mc_volatility * 2.5  # RBs are also volatile
         elif row['position'] == 'WR':
-            volatility_penalty = mc_volatility * 2  # WRs have moderate volatility
+            volatility_penalty = mc_volatility * 1.8  # Reduced WR volatility penalty
         elif row['position'] == 'TE':
-            volatility_penalty = mc_volatility * 1.5  # TEs are less volatile
+            volatility_penalty = mc_volatility * 1.2  # Reduced TE volatility penalty
 
         # Enhanced unified big board score with VOR/scarcity/SOS integration
         unified_score = (
-            injury_adjusted_points * 0.22 +           # Efficiency-adjusted projection
-            mc_mean * 0.12 +                        # Monte Carlo mean
-            mc_median * 0.03 +                      # MC median as a tiebreaker
+            injury_adjusted_points * 0.20 +           # Reduced efficiency-adjusted projection weight
+            mc_mean * 0.10 +                        # Reduced Monte Carlo mean weight
+            mc_median * 0.02 +                      # Reduced MC median weight
             mc_25th_percentile * 0.01 +             # Conservative MC estimate
             mc_75th_percentile * 0.01 +             # Upside MC estimate
-            mc_probability_above_avg * 2 +          # Small bonus for high probability
-            mc_upside_potential * 0.08 -             # Upside potential bonus
+            mc_probability_above_avg * 1.5 +        # Reduced probability bonus
+            mc_upside_potential * 0.06 -             # Reduced upside potential bonus
             volatility_penalty +                    # Position-adjusted volatility penalty
             vor_norm * vor_weight * scarcity_boost
         )
+        
+        # Apply position factor and cap
+        unified_score *= position_factor
         if row['position'] == 'QB':
             unified_score *= cap  # Cap QB scores
         df_unified.loc[idx, 'unified_big_board_score'] = unified_score
