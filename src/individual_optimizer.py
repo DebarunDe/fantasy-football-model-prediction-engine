@@ -243,11 +243,11 @@ def calculate_unified_big_board_score(df):
         # Normalize vor_final for blending (avoid negative/zero)
         vor_norm = max(vor_final, 0)
 
-        # FantasyPros-like positional weighting
+        # Position-specific adjustments for VOR and scarcity
         if row['position'] == 'QB':
-            vor_weight = 0.12  # Further reduced VOR/points impact for QBs
-            scarcity_boost = 0.90  # Further reduced scarcity boost for QBs
-            cap = 0.80  # More aggressive cap for QBs
+            vor_weight = 0.25  # Less aggressive - increased from 0.12
+            scarcity_boost = 1.05  # Less aggressive - increased from 0.90
+            cap = 0.95  # Less aggressive cap - increased from 0.80
         elif row['position'] == 'RB':
             vor_weight = 0.52  # Increased VOR/points impact for RBs
             scarcity_boost = 1.15  # Increased scarcity boost for RBs
@@ -265,10 +265,9 @@ def calculate_unified_big_board_score(df):
             scarcity_boost = 1.0
             cap = 1.0
 
-        # Position adjustment factor (to balance positions in unified ranking)
         position_factor = 1.0
         if row['position'] == 'QB':
-            position_factor = 0.85  # Further reduce QB position factor
+            position_factor = 0.95  # Less aggressive - increased from 0.85
         elif row['position'] == 'RB':
             position_factor = 1.10  # Increase RB position factor
         elif row['position'] == 'WR':
