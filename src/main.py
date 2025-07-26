@@ -156,17 +156,17 @@ if __name__ == '__main__':
     import sys
     import pandas as pd
     import datetime
-    year = None
+    # Default to next NFL season if no year is provided
+    current_year = datetime.datetime.now().year
     if len(sys.argv) > 1:
         year = sys.argv[1]
     else:
-        print('Usage: python src/main.py <year>')
-        sys.exit(1)
+        year = str(current_year + 1)
+        print(f'[INFO] No year provided. Defaulting to {year}.')
     # Load projections for the given year
     props_df_raw = download_fantasypros_projections()
     props_df = map_fantasypros_to_pipeline(props_df_raw)
     # Determine if year is in the future (no nflfastR data available)
-    current_year = datetime.datetime.now().year
     if int(year) > current_year:
         print(f"[INFO] {year} is in the future. Skipping nflfastR data and running projections only.")
         results = []
