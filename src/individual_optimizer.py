@@ -245,20 +245,20 @@ def calculate_unified_big_board_score(df):
 
         # Position-specific adjustments for VOR and scarcity
         if row['position'] == 'QB':
-            vor_weight = 0.25  # Less aggressive - increased from 0.12
-            scarcity_boost = 1.05  # Less aggressive - increased from 0.90
-            cap = 0.95  # Less aggressive cap - increased from 0.80
+            vor_weight = 0.40  # Increased from 0.35 to further boost QB value
+            scarcity_boost = 1.20  # Increased from 1.15 to boost QB scarcity
+            cap = 1.0  # Keep QB cap removed
         elif row['position'] == 'RB':
-            vor_weight = 0.52  # Increased VOR/points impact for RBs
-            scarcity_boost = 1.15  # Increased scarcity boost for RBs
+            vor_weight = 0.40  # Reduced from 0.45 to further reduce RB overvaluation
+            scarcity_boost = 1.05  # Reduced from 1.10 to reduce RB boost
             cap = 1.0
         elif row['position'] == 'WR':
-            vor_weight = 0.45  # Further increased VOR/points impact for WRs
-            scarcity_boost = 1.10  # Increased scarcity boost for WRs
+            vor_weight = 0.60  # Increased from 0.55 to boost WR value further
+            scarcity_boost = 1.25  # Increased from 1.20 to boost WR scarcity
             cap = 1.0
         elif row['position'] == 'TE':
-            vor_weight = 0.38  # Increased VOR/points impact for TEs
-            scarcity_boost = 1.18  # Increased scarcity boost for TEs
+            vor_weight = 0.25  # Reduced from 0.30 to reduce TE overvaluation
+            scarcity_boost = 1.05  # Reduced from 1.10 to reduce TE boost
             cap = 1.0
         else:
             vor_weight = 0.30
@@ -267,13 +267,13 @@ def calculate_unified_big_board_score(df):
 
         position_factor = 1.0
         if row['position'] == 'QB':
-            position_factor = 0.95  # Less aggressive - increased from 0.85
+            position_factor = 1.10  # Increased from 1.05 to boost QB value
         elif row['position'] == 'RB':
-            position_factor = 1.10  # Increase RB position factor
+            position_factor = 1.00  # Reduced from 1.05 to reduce RB overvaluation
         elif row['position'] == 'WR':
-            position_factor = 1.08  # Increase WR position factor
+            position_factor = 1.20  # Increased from 1.15 to boost WR value
         elif row['position'] == 'TE':
-            position_factor = 1.15  # Increase TE position factor
+            position_factor = 1.05  # Reduced from 1.08 to reduce TE overvaluation
 
         # Position-specific volatility penalty (higher penalty for more volatile positions)
         volatility_penalty = 0
