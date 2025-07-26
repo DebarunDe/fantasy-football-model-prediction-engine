@@ -195,7 +195,17 @@ if __name__ == '__main__':
             })
         results_df = pd.DataFrame(results)
         from individual_optimizer import calculate_advanced_statistical_metrics, calculate_risk_adjusted_value, calculate_bayesian_adjustments, calculate_consistency_metrics, calculate_unified_big_board_score
+        from vbd_optimizer import calculate_replacement_baselines, calculate_vor, calculate_opportunity_cost, calculate_optimal_value
         from ranking import export_to_excel
+        # --- VOR/Scarcity Integration ---
+        baselines = calculate_replacement_baselines(results_df)
+        df_vor = calculate_vor(results_df, baselines)
+        df_oc = calculate_opportunity_cost(df_vor)
+        df_optimal = calculate_optimal_value(df_oc)
+        # Add VOR/scarcity columns to results_df for unified big board
+        results_df = results_df.merge(df_optimal[['player_id','vor','optimal_value']], on='player_id', how='left')
+        results_df['vor_final'] = results_df['vor']
+        # --- End VOR/Scarcity Integration ---
         df = calculate_advanced_statistical_metrics(results_df)
         df = calculate_risk_adjusted_value(df)
         df = calculate_bayesian_adjustments(df)
@@ -244,7 +254,17 @@ if __name__ == '__main__':
                 })
             results_df = pd.DataFrame(results)
             from individual_optimizer import calculate_advanced_statistical_metrics, calculate_risk_adjusted_value, calculate_bayesian_adjustments, calculate_consistency_metrics, calculate_unified_big_board_score
+            from vbd_optimizer import calculate_replacement_baselines, calculate_vor, calculate_opportunity_cost, calculate_optimal_value
             from ranking import export_to_excel
+            # --- VOR/Scarcity Integration ---
+            baselines = calculate_replacement_baselines(results_df)
+            df_vor = calculate_vor(results_df, baselines)
+            df_oc = calculate_opportunity_cost(df_vor)
+            df_optimal = calculate_optimal_value(df_oc)
+            # Add VOR/scarcity columns to results_df for unified big board
+            results_df = results_df.merge(df_optimal[['player_id','vor','optimal_value']], on='player_id', how='left')
+            results_df['vor_final'] = results_df['vor']
+            # --- End VOR/Scarcity Integration ---
             df = calculate_advanced_statistical_metrics(results_df)
             df = calculate_risk_adjusted_value(df)
             df = calculate_bayesian_adjustments(df)
