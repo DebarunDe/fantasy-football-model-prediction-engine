@@ -2,6 +2,11 @@ name: Run Fantasy Football Model Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      league_size:
+        description: 'Number of teams in the league'
+        required: false
+        default: '14'
   schedule:
     - cron: '0 12 * * 1' # Runs every Monday at 12:00 UTC
 
@@ -25,7 +30,7 @@ jobs:
         env:
           SPORTSBOOKAPI_KEY: ${{ secrets.SPORTSBOOKAPI_KEY }}
         run: |
-          python src/main.py
+          python src/main.py ${{ github.event.inputs.league_size || '14' }}
 
       - name: Upload Excel output
         uses: actions/upload-artifact@v4

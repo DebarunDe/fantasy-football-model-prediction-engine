@@ -158,11 +158,18 @@ if __name__ == '__main__':
     import datetime
     # Default to next NFL season if no year is provided
     current_year = datetime.datetime.now().year
-    if len(sys.argv) > 1:
-        year = sys.argv[1]
-    else:
+    league_size = 12  # Default league size
+    # Parse command-line arguments
+    year = None
+    for arg in sys.argv[1:]:
+        if arg.isdigit() and int(arg) > 2000:
+            year = arg
+        elif arg.isdigit():
+            league_size = int(arg)
+    if not year:
         year = str(current_year + 1)
         print(f'[INFO] No year provided. Defaulting to {year}.')
+    print(f'[INFO] Using league size: {league_size} teams')
     # Load projections for the given year
     props_df_raw = download_fantasypros_projections()
     props_df = map_fantasypros_to_pipeline(props_df_raw)
@@ -198,7 +205,7 @@ if __name__ == '__main__':
         from vbd_optimizer import calculate_replacement_baselines, calculate_vor, calculate_opportunity_cost, calculate_optimal_value
         from ranking import export_to_excel
         # --- VOR/Scarcity Integration ---
-        baselines = calculate_replacement_baselines(results_df)
+        baselines = calculate_replacement_baselines(results_df, league_size=league_size)
         df_vor = calculate_vor(results_df, baselines)
         df_oc = calculate_opportunity_cost(df_vor)
         df_optimal = calculate_optimal_value(df_oc)
@@ -257,7 +264,7 @@ if __name__ == '__main__':
             from vbd_optimizer import calculate_replacement_baselines, calculate_vor, calculate_opportunity_cost, calculate_optimal_value
             from ranking import export_to_excel
             # --- VOR/Scarcity Integration ---
-            baselines = calculate_replacement_baselines(results_df)
+            baselines = calculate_replacement_baselines(results_df, league_size=league_size)
             df_vor = calculate_vor(results_df, baselines)
             df_oc = calculate_opportunity_cost(df_vor)
             df_optimal = calculate_optimal_value(df_oc)

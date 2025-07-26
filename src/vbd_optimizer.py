@@ -1,37 +1,36 @@
 import pandas as pd
 import numpy as np
 
-def calculate_replacement_baselines(df):
+def calculate_replacement_baselines(df, league_size=12):
     """
     Calculate replacement-level players for each position.
-    Based on standard 12-team league with 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX
+    Based on league_size (number of teams).
     """
     baselines = {}
-    
-    # For 12-team league, replacement level is roughly:
-    # QB: 12th QB (1 per team)
-    # RB: 24th RB (2 per team) 
-    # WR: 24th WR (2 per team)
-    # TE: 12th TE (1 per team)
-    
+    # For standard leagues:
+    # QB: 1 per team
+    # RB: 2 per team
+    # WR: 2 per team
+    # TE: 1 per team
+    qb_idx = league_size - 1
+    rb_idx = 2 * league_size - 1
+    wr_idx = 2 * league_size - 1
+    te_idx = league_size - 1
     for position in ['QB', 'RB', 'WR', 'TE']:
         pos_df = df[df['position'] == position].sort_values('raw_fantasy_points', ascending=False)
-        
         if position == 'QB':
-            baseline_idx = 11  # 12th QB (0-indexed)
+            baseline_idx = qb_idx
         elif position == 'RB':
-            baseline_idx = 23  # 24th RB
+            baseline_idx = rb_idx
         elif position == 'WR':
-            baseline_idx = 23  # 24th WR
+            baseline_idx = wr_idx
         elif position == 'TE':
-            baseline_idx = 11  # 12th TE
-        
+            baseline_idx = te_idx
         if len(pos_df) > baseline_idx:
             baselines[position] = pos_df.iloc[baseline_idx]['raw_fantasy_points']
         else:
             # Fallback: use median if not enough players
             baselines[position] = pos_df['raw_fantasy_points'].median()
-    
     return baselines
 
 def calculate_vor(df, baselines):
