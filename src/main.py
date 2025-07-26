@@ -195,11 +195,13 @@ if __name__ == '__main__':
             })
         results_df = pd.DataFrame(results)
         from individual_optimizer import calculate_advanced_statistical_metrics, calculate_risk_adjusted_value, calculate_bayesian_adjustments, calculate_consistency_metrics, calculate_unified_big_board_score
+        from ranking import export_to_excel
         df = calculate_advanced_statistical_metrics(results_df)
         df = calculate_risk_adjusted_value(df)
         df = calculate_bayesian_adjustments(df)
         df = calculate_consistency_metrics(df)
         unified_df = calculate_unified_big_board_score(df)
+        export_to_excel(unified_df, filename='fantasy_big_board.xlsx')
         print('\nTop 20 Players for', year)
         print(unified_df[['player_id','position','unified_big_board_score']].head(20))
         sys.exit(0)
@@ -242,11 +244,13 @@ if __name__ == '__main__':
                 })
             results_df = pd.DataFrame(results)
             from individual_optimizer import calculate_advanced_statistical_metrics, calculate_risk_adjusted_value, calculate_bayesian_adjustments, calculate_consistency_metrics, calculate_unified_big_board_score
+            from ranking import export_to_excel
             df = calculate_advanced_statistical_metrics(results_df)
             df = calculate_risk_adjusted_value(df)
             df = calculate_bayesian_adjustments(df)
             df = calculate_consistency_metrics(df)
             unified_df = calculate_unified_big_board_score(df)
+            export_to_excel(unified_df, filename='fantasy_big_board.xlsx')
             print('\nTop 20 Players for', year)
             print(unified_df[['player_id','position','unified_big_board_score']].head(20))
         except Exception as e:
