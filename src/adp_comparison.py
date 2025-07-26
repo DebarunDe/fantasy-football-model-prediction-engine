@@ -319,24 +319,27 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
 def get_value_color(league_size_adjusted_diff):
     """
     Get color based on league-size-adjusted rank difference.
+    FIXED: Negative diff means our rank is better than ADP (BUY), positive diff means our rank is worse than ADP (AVOID)
     """
     if pd.isna(league_size_adjusted_diff):
         return 'purple'  # Missing from ADP
     
     diff = league_size_adjusted_diff
     
-    if diff >= 1.0:
-        return 'teal'      # +1 league size or better
-    elif diff >= 0.5:
-        return 'green'     # +0.5 to +1 league size
-    elif diff >= 0.0:
-        return 'light_green'  # +0 to +0.5 league size
-    elif diff >= -0.5:
-        return 'yellow'    # -0.5 to 0 league size
-    elif diff >= -1.0:
-        return 'orange'    # -1 to -0.5 league size
+    # FIXED LOGIC: Negative diff = our rank is better than ADP = BUY
+    # Positive diff = our rank is worse than ADP = AVOID
+    if diff <= -1.0:
+        return 'teal'      # Our rank is much better than ADP = Strong Buy
+    elif diff <= -0.5:
+        return 'green'     # Our rank is better than ADP = Buy
+    elif diff <= 0.0:
+        return 'light_green'  # Our rank is slightly better than ADP = Slight Buy
+    elif diff <= 0.5:
+        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid
+    elif diff <= 1.0:
+        return 'orange'    # Our rank is worse than ADP = Avoid
     else:
-        return 'red'       # -1 league size or worse
+        return 'red'       # Our rank is much worse than ADP = Strong Avoid
 
 def create_adp_comparison_sheet(big_board_df, league_size=12):
     """
