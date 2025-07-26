@@ -257,8 +257,8 @@ def calculate_unified_big_board_score(df):
             scarcity_boost = 1.25  # Increased from 1.20 to boost WR scarcity
             cap = 1.0
         elif row['position'] == 'TE':
-            vor_weight = 0.25  # Reduced from 0.30 to reduce TE overvaluation
-            scarcity_boost = 1.05  # Reduced from 1.10 to reduce TE boost
+            vor_weight = 0.35  # Increased from 0.25 to boost TE value for PPR scarcity
+            scarcity_boost = 1.15  # Increased from 1.05 to boost TE scarcity premium
             cap = 1.0
         else:
             vor_weight = 0.30
@@ -273,7 +273,7 @@ def calculate_unified_big_board_score(df):
         elif row['position'] == 'WR':
             position_factor = 1.20  # Increased from 1.15 to boost WR value
         elif row['position'] == 'TE':
-            position_factor = 1.05  # Reduced from 1.08 to reduce TE overvaluation
+            position_factor = 1.12  # Increased from 1.05 to boost TE value for PPR scarcity
 
         # Position-specific volatility penalty (higher penalty for more volatile positions)
         volatility_penalty = 0
@@ -284,7 +284,7 @@ def calculate_unified_big_board_score(df):
         elif row['position'] == 'WR':
             volatility_penalty = mc_volatility * 1.8  # Reduced WR volatility penalty
         elif row['position'] == 'TE':
-            volatility_penalty = mc_volatility * 1.2  # Reduced TE volatility penalty
+            volatility_penalty = mc_volatility * 1.0  # Further reduced TE volatility penalty for PPR stability
 
         # Enhanced unified big board score with VOR/scarcity/SOS integration
         unified_score = (
