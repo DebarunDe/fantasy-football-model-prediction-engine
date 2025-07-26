@@ -2,6 +2,10 @@ import pandas as pd
 import requests
 from rapidfuzz import fuzz, process
 import numpy as np
+import time
+import re
+import json
+import os
 
 def normalize_player_name(name):
     """
@@ -24,90 +28,217 @@ def normalize_player_name(name):
     
     return name
 
-def collect_espn_adp():
+def get_fantasy_football_calculator_adp(league_size=12):
     """
-    Collect ESPN ADP data for 2025 season.
-    Note: This is a placeholder - in practice, you'd need to scrape ESPN or use their API.
+    Get ADP data from Fantasy Football Calculator REST API.
+    Based on their official API documentation: https://help.fantasyfootballcalculator.com/article/42-adp-rest-api
     """
-    # For now, we'll create a sample dataset
-    # In production, you'd scrape ESPN's ADP data
-    espn_adp_data = {
-        'player_name': [
-            'Josh Allen', 'Lamar Jackson', 'Jalen Hurts', 'Patrick Mahomes', 'Joe Burrow',
-            'Christian McCaffrey', 'Bijan Robinson', 'Jahmyr Gibbs', 'Saquon Barkley', 'Derrick Henry',
-            'Ja\'Marr Chase', 'Justin Jefferson', 'CeeDee Lamb', 'Tyreek Hill', 'Amon-Ra St. Brown',
-            'Travis Kelce', 'Sam LaPorta', 'Mark Andrews', 'T.J. Hockenson', 'George Kittle',
-            'De\'Von Achane', 'Josh Jacobs', 'Kyren Williams', 'Breece Hall', 'Jonathan Taylor',
-            'Puka Nacua', 'Malik Nabers', 'Garrett Wilson', 'Chris Olave', 'Jaylen Waddle',
-            'Jayden Daniels', 'Caleb Williams', 'Drake Maye', 'Anthony Richardson', 'Justin Fields'
-        ],
-        'espn_adp': [
-            15, 18, 22, 25, 28,
-            1, 2, 3, 4, 5,
-            6, 7, 8, 9, 10,
-            11, 12, 13, 14, 16,
-            17, 19, 20, 21, 23,
-            24, 26, 27, 29, 30,
-            31, 32, 33, 34, 35
+    try:
+        # Fantasy Football Calculator REST API endpoint
+        base_url = "https://fantasyfootballcalculator.com/api/v1/adp"
+        
+        # Use the configurable league size from our pipeline
+        # Fantasy Football Calculator supports common league sizes
+        supported_league_sizes = [8, 10, 12, 14, 16]
+        
+        # Find the closest supported league size
+        closest_league_size = min(supported_league_sizes, key=lambda x: abs(x - league_size))
+        if closest_league_size != league_size:
+            print(f"[INFO] League size {league_size} not supported by Fantasy Football Calculator. Using closest supported size: {closest_league_size}")
+        
+        # Try different scoring formats with our league size
+        scoring_formats = ['standard', 'ppr', 'half-ppr']
+        years = [2025, 2024]  # Try current and previous year
+        
+        # Try different API endpoints and parameters for more comprehensive data
+        api_variations = [
+            # Standard ADP endpoint
+            f"{base_url}/{{scoring}}?teams={{teams}}&year={{year}}",
+            # Try without year parameter
+            f"{base_url}/{{scoring}}?teams={{teams}}",
+            # Try with different parameter orders
+            f"{base_url}/{{scoring}}?year={{year}}&teams={{teams}}",
+            # Try rankings endpoint as fallback
+            f"{base_url.replace('/adp', '/rankings')}/{{scoring}}?teams={{teams}}&year={{year}}",
+            # Try without scoring format
+            f"{base_url}?teams={{teams}}&year={{year}}",
+            # Try with format parameter
+            f"{base_url}/{{scoring}}?teams={{teams}}&year={{year}}&format=json"
         ]
-    }
-    
-    return pd.DataFrame(espn_adp_data)
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        }
+        
+        best_result = None
+        max_players = 0
+        
+        for api_template in api_variations:
+            for scoring in scoring_formats:
+                for year in years:
+                    try:
+                        url = api_template.format(scoring=scoring, teams=closest_league_size, year=year)
+                        print(f"[INFO] Trying Fantasy Football Calculator API: {url}")
+                        
+                        response = requests.get(url, headers=headers, timeout=15)
+                        response.raise_for_status()
+                        
+                        # Parse JSON response
+                        data = response.json()
+                        players = parse_fantasy_calculator_api_data(data)
+                        
+                        if players and len(players) > max_players:
+                            max_players = len(players)
+                            best_result = players
+                            print(f"[SUCCESS] Found {len(players)} players from Fantasy Football Calculator API ({scoring}, {closest_league_size} teams, {year})")
+                        
+                    except Exception as e:
+                        print(f"[WARNING] Failed with template {api_template}, {scoring}, {closest_league_size} teams, {year}: {e}")
+                        continue
+        
+        if best_result:
+            print(f"[SUCCESS] Using best result with {len(best_result)} players")
+            return pd.DataFrame(best_result, columns=['player_name', 'adp'])
+        
+        print("[ERROR] Could not get data from Fantasy Football Calculator API")
+        return pd.DataFrame(columns=['player_name', 'adp'])
+        
+    except Exception as e:
+        print(f"[ERROR] Fantasy Football Calculator API error: {e}")
+        return pd.DataFrame(columns=['player_name', 'adp'])
 
-def collect_yahoo_adp():
+def parse_fantasy_calculator_api_data(data):
     """
-    Collect Yahoo ADP data for 2025 season.
-    Note: This is a placeholder - in practice, you'd need to scrape Yahoo or use their API.
+    Parse JSON data from Fantasy Football Calculator REST API.
+    Based on their API response format.
     """
-    # For now, we'll create a sample dataset
-    # In production, you'd scrape Yahoo's ADP data
-    yahoo_adp_data = {
-        'player_name': [
-            'Josh Allen', 'Lamar Jackson', 'Jalen Hurts', 'Patrick Mahomes', 'Joe Burrow',
-            'Christian McCaffrey', 'Bijan Robinson', 'Jahmyr Gibbs', 'Saquon Barkley', 'Derrick Henry',
-            'Ja\'Marr Chase', 'Justin Jefferson', 'CeeDee Lamb', 'Tyreek Hill', 'Amon-Ra St. Brown',
-            'Travis Kelce', 'Sam LaPorta', 'Mark Andrews', 'T.J. Hockenson', 'George Kittle',
-            'De\'Von Achane', 'Josh Jacobs', 'Kyren Williams', 'Breece Hall', 'Jonathan Taylor',
-            'Puka Nacua', 'Malik Nabers', 'Garrett Wilson', 'Chris Olave', 'Jaylen Waddle',
-            'Jayden Daniels', 'Caleb Williams', 'Drake Maye', 'Anthony Richardson', 'Justin Fields'
-        ],
-        'yahoo_adp': [
-            16, 19, 21, 24, 27,
-            1, 2, 3, 4, 5,
-            6, 7, 8, 9, 10,
-            11, 12, 13, 14, 15,
-            17, 18, 20, 22, 23,
-            25, 26, 28, 29, 30,
-            31, 32, 33, 34, 35
-        ]
-    }
+    players = []
     
-    return pd.DataFrame(yahoo_adp_data)
+    try:
+        # The API should return a JSON object with a players array
+        if isinstance(data, dict):
+            # Look for players array in the response - try multiple possible keys
+            players_array = data.get('players') or data.get('data') or data.get('rankings') or data.get('adp') or data.get('results')
+            
+            if players_array and isinstance(players_array, list):
+                for player in players_array:
+                    if isinstance(player, dict):
+                        # Extract player name and ADP from the API response - try multiple possible keys
+                        name = player.get('name') or player.get('player') or player.get('player_name') or player.get('full_name')
+                        adp = player.get('adp') or player.get('rank') or player.get('position') or player.get('overall_rank')
+                        
+                        if name and adp is not None:
+                            try:
+                                adp_value = float(adp)
+                                players.append((name, adp_value))
+                            except (ValueError, TypeError):
+                                continue
+            
+            # If no players array found, check if data is directly a list
+            elif isinstance(data.get('data'), list):
+                for player in data['data']:
+                    if isinstance(player, dict):
+                        name = player.get('name') or player.get('player')
+                        adp = player.get('adp') or player.get('rank')
+                        
+                        if name and adp is not None:
+                            try:
+                                adp_value = float(adp)
+                                players.append((name, adp_value))
+                            except (ValueError, TypeError):
+                                continue
+        
+        # If data is directly a list
+        elif isinstance(data, list):
+            for player in data:
+                if isinstance(player, dict):
+                    name = player.get('name') or player.get('player')
+                    adp = player.get('adp') or player.get('rank')
+                    
+                    if name and adp is not None:
+                        try:
+                            adp_value = float(adp)
+                            players.append((name, adp_value))
+                        except (ValueError, TypeError):
+                            continue
+        
+        # Sort by ADP
+        players.sort(key=lambda x: x[1])
+        
+        # Remove duplicates based on player name
+        seen_names = set()
+        unique_players = []
+        for name, adp in players:
+            normalized_name = normalize_player_name(name)
+            if normalized_name not in seen_names:
+                seen_names.add(normalized_name)
+                unique_players.append((name, adp))
+        
+        print(f"[INFO] Parsed {len(unique_players)} unique players from API response")
+        
+    except Exception as e:
+        print(f"[WARNING] Error parsing Fantasy Football Calculator API data: {e}")
+    
+    return unique_players
+
+def load_adp_from_csv():
+    """
+    Load ADP data from CSV files in the data folder.
+    Expected files: Fantasy_Football_Calculator_ADP_2025.csv
+    """
+    adp_df = pd.DataFrame()
+    
+    # Try to load Fantasy Football Calculator ADP
+    try:
+        adp_path = 'data/Fantasy_Football_Calculator_ADP_2025.csv'
+        if os.path.exists(adp_path):
+            adp_df = pd.read_csv(adp_path)
+            print(f"[SUCCESS] Loaded Fantasy Football Calculator ADP from {adp_path}: {len(adp_df)} players")
+        else:
+            print(f"[INFO] Fantasy Football Calculator ADP file not found at {adp_path}")
+    except Exception as e:
+        print(f"[WARNING] Could not load Fantasy Football Calculator ADP: {e}")
+    
+    return adp_df
+
+def collect_fantasy_football_calculator_adp(league_size=12):
+    """
+    Collect ADP data from Fantasy Football Calculator - try CSV first, then API.
+    """
+    # Try loading from CSV first
+    adp_df = load_adp_from_csv()
+    if not adp_df.empty:
+        return adp_df
+    
+    # Fall back to Fantasy Football Calculator API with configurable league size
+    print(f"[INFO] Trying Fantasy Football Calculator REST API for ADP data (league size: {league_size})")
+    ffc_df = get_fantasy_football_calculator_adp(league_size)
+    if not ffc_df.empty:
+        return ffc_df
+    
+    print("[ERROR] Could not get Fantasy Football Calculator ADP data")
+    return pd.DataFrame(columns=['player_name', 'adp'])
 
 def get_average_adp(league_size=12):
     """
-    Get average ADP from ESPN and Yahoo, with league size consideration.
+    Get ADP data from Fantasy Football Calculator with configurable league size.
     """
-    espn_df = collect_espn_adp()
-    yahoo_df = collect_yahoo_adp()
+    adp_df = collect_fantasy_football_calculator_adp(league_size)
     
-    # Normalize player names for matching
-    espn_df['normalized_name'] = espn_df['player_name'].apply(normalize_player_name)
-    yahoo_df['normalized_name'] = yahoo_df['player_name'].apply(normalize_player_name)
+    if adp_df.empty:
+        print("[ERROR] No ADP data available from Fantasy Football Calculator")
+        return pd.DataFrame(columns=['player_name', 'normalized_name', 'adp'])
     
-    # Merge ESPN and Yahoo ADP data
-    merged_df = pd.merge(espn_df, yahoo_df, on='normalized_name', how='outer', suffixes=('_espn', '_yahoo'))
+    # Normalize player names
+    adp_df['normalized_name'] = adp_df['player_name'].apply(normalize_player_name)
     
-    # Calculate average ADP
-    merged_df['avg_adp'] = merged_df[['espn_adp', 'yahoo_adp']].mean(axis=1)
+    # Sort by ADP
+    adp_df = adp_df.sort_values('adp')
     
-    # Sort by average ADP
-    merged_df = merged_df.sort_values('avg_adp')
-    
-    # Add original player name (prefer ESPN name if available)
-    merged_df['player_name'] = merged_df['player_name_espn'].fillna(merged_df['player_name_yahoo'])
-    
-    return merged_df[['player_name', 'normalized_name', 'espn_adp', 'yahoo_adp', 'avg_adp']]
+    print(f"[SUCCESS] Loaded Fantasy Football Calculator ADP data: {len(adp_df)} players (league size: {league_size})")
+    return adp_df[['player_name', 'normalized_name', 'adp']]
 
 def match_players_to_adp(big_board_df, adp_df, league_size=12):
     """
@@ -118,7 +249,7 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
     big_board_df['normalized_name'] = big_board_df['player_id'].apply(normalize_player_name)
     
     # Create a mapping from normalized names to ADP data
-    adp_dict = dict(zip(adp_df['normalized_name'], adp_df['avg_adp']))
+    adp_dict = dict(zip(adp_df['normalized_name'], adp_df['adp']))
     
     # Match players using fuzzy matching
     matched_players = []
@@ -137,7 +268,7 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
                 'unified_big_board_score': player['unified_big_board_score'],
                 'raw_fantasy_points': player.get('raw_fantasy_points', 0),
                 'vor_final': player.get('vor_final', 0),
-                'avg_adp': adp_dict[normalized_name],
+                'adp': adp_dict[normalized_name],
                 'rank_difference': player['unified_rank'] - adp_dict[normalized_name],
                 'league_size_adjusted_diff': (player['unified_rank'] - adp_dict[normalized_name]) / league_size,
                 'matched': True
@@ -155,7 +286,7 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
                     'unified_big_board_score': player['unified_big_board_score'],
                     'raw_fantasy_points': player.get('raw_fantasy_points', 0),
                     'vor_final': player.get('vor_final', 0),
-                    'avg_adp': matched_adp,
+                    'adp': matched_adp,
                     'rank_difference': player['unified_rank'] - matched_adp,
                     'league_size_adjusted_diff': (player['unified_rank'] - matched_adp) / league_size,
                     'matched': True
@@ -170,7 +301,7 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
                     'unified_big_board_score': player['unified_big_board_score'],
                     'raw_fantasy_points': player.get('raw_fantasy_points', 0),
                     'vor_final': player.get('vor_final', 0),
-                    'avg_adp': np.nan,
+                    'adp': np.nan,
                     'rank_difference': np.nan,
                     'league_size_adjusted_diff': np.nan,
                     'matched': False
@@ -181,7 +312,7 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
     
     # Create DataFrame and sort by ADP (unmatched players go to the end)
     result_df = pd.DataFrame(all_players)
-    result_df = result_df.sort_values('avg_adp', na_position='last')
+    result_df = result_df.sort_values('adp', na_position='last')
     
     return result_df
 
@@ -209,9 +340,9 @@ def get_value_color(league_size_adjusted_diff):
 
 def create_adp_comparison_sheet(big_board_df, league_size=12):
     """
-    Create ADP comparison sheet with color coding.
+    Create ADP comparison sheet with color coding using Fantasy Football Calculator data.
     """
-    # Get average ADP data
+    # Get ADP data with configurable league size
     adp_df = get_average_adp(league_size)
     
     # Match players

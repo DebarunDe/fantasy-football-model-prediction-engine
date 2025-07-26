@@ -111,7 +111,7 @@ def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
     
     # Select columns for the ADP comparison sheet
     adp_columns = [
-        'avg_adp', 'player_id', 'team', 'position', 'unified_rank', 
+        'adp', 'player_id', 'team', 'position', 'unified_rank', 
         'rank_difference', 'league_size_adjusted_diff', 'value_recommendation',
         'unified_big_board_score', 'raw_fantasy_points'
     ]
