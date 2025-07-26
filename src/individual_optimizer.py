@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
+from sklearn.linear_model import LinearRegression
 
 def calculate_advanced_statistical_metrics(df):
     """
@@ -303,11 +304,33 @@ def calculate_unified_big_board_score(df):
             unified_score *= cap  # Cap QB scores
         df_unified.loc[idx, 'unified_big_board_score'] = unified_score
 
-    # Rank all players together on the unified big board
     df_unified['unified_rank'] = df_unified['unified_big_board_score'].rank(ascending=False, method='min')
     df_unified = df_unified.sort_values('unified_rank')
-
     return df_unified
+
+def fit_model_weights(projections_df, actuals_df, join_on='player_id', features=None, target='actual_fantasy_points'):
+    """
+    Fit optimal weights for model features using historical projections and actuals.
+    Returns a dict of optimal weights for use in the unified big board score.
+    """
+    # Join projections and actuals
+    merged = projections_df.merge(actuals_df, left_on=join_on, right_on=join_on, suffixes=('_proj', '_actual'))
+    if features is None:
+        features = [
+            'raw_fantasy_points',
+            'risk_score',
+            'upside_potential',
+            'bayesian_projection',
+            'consistency_score',
+            'vor_final',
+        ]
+    X = merged[features].fillna(0).values
+    y = merged[target].values
+    # Fit linear regression
+    reg = LinearRegression().fit(X, y)
+    weights = dict(zip(features, reg.coef_))
+    weights['intercept'] = reg.intercept_
+    return weights
 
 def analyze_unified_big_board_insights(df_unified):
     """
@@ -347,6 +370,39 @@ def analyze_unified_big_board_insights(df_unified):
     for _, player in best_risk_adjusted.iterrows():
         print(f"  {player['player_id']} ({player['position']}): {player['risk_adjusted_value']:.1f} value, rank #{player['unified_rank']:.0f}")
 
-if __name__ == "__main__":
-    # This would be called from main.py after basic fantasy point calculation
-    pass 
+if __name__ == '__main__':
+    import pandas as pd
+    import glob
+    import re
+    # Find all merged projections-actuals files
+    merged_files = sorted(glob.glob('merged_proj_actuals_*.csv'))
+    # Extract years and sort
+    years = sorted([int(re.findall(r'(\d{4})', f)[0]) for f in merged_files])
+    if len(years) < 2:
+        print('Need at least two seasons of data for calibration and validation.')
+        exit(1)
+    train_year, val_year = years[-2], years[-1]
+    print(f'Fitting on {train_year}, validating on {val_year}')
+    merged_train = pd.read_csv(f'merged_proj_actuals_{train_year}.csv')
+    merged_val = pd.read_csv(f'merged_proj_actuals_{val_year}.csv')
+    features = [
+        'raw_fantasy_points',
+        'risk_score',
+        'upside_potential',
+        'bayesian_projection',
+        'consistency_score',
+    ]
+    # Fit weights on train_year
+    X_train = merged_train[features].fillna(0).values
+    y_train = merged_train['fantasy_points'].values
+    from sklearn.linear_model import LinearRegression
+    reg = LinearRegression().fit(X_train, y_train)
+    weights = dict(zip(features, reg.coef_))
+    weights['intercept'] = reg.intercept_
+    print(f'Fitted weights ({train_year}):', weights)
+    # Validate on val_year
+    X_val = merged_val[features].fillna(0).values
+    y_val = merged_val['fantasy_points'].values
+    y_pred = reg.predict(X_val)
+    mse = ((y_pred - y_val) ** 2).mean()
+    print(f'Validation MSE on {val_year}:', mse) 

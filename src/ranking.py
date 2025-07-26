@@ -176,21 +176,22 @@ def create_unified_analysis_sheets(writer, df):
     # Monte Carlo analysis sheets
     if 'mc_mean' in df.columns:
         # Monte Carlo rankings
-        mc_rankings_df = df.sort_values('mc_rank')[['mc_rank', 'player_id', 'position', 'mc_adjusted_score', 'mc_mean', 'mc_volatility']]
-        mc_rankings_df.to_excel(writer, sheet_name='Monte_Carlo_Rankings', index=False)
-
+        if all(col in df.columns for col in ['mc_rank', 'mc_adjusted_score', 'mc_mean', 'mc_volatility']):
+            mc_rankings_df = df.sort_values('mc_rank')[['mc_rank', 'player_id', 'position', 'mc_adjusted_score', 'mc_mean', 'mc_volatility']]
+            mc_rankings_df.to_excel(writer, sheet_name='Monte_Carlo_Rankings', index=False)
         # Highest upside potential
-        mc_upside_df = df.sort_values('mc_upside_potential', ascending=False)[['unified_rank', 'player_id', 'position', 'mc_upside_potential', 'mc_volatility', 'mc_mean']]
-        mc_upside_df.to_excel(writer, sheet_name='MC_Upside_Analysis', index=False)
-
+        if all(col in df.columns for col in ['mc_upside_potential', 'mc_volatility', 'mc_mean']):
+            mc_upside_df = df.sort_values('mc_upside_potential', ascending=False)[['unified_rank', 'player_id', 'position', 'mc_upside_potential', 'mc_volatility', 'mc_mean']]
+            mc_upside_df.to_excel(writer, sheet_name='MC_Upside_Analysis', index=False)
         # Safest players (lowest downside risk)
-        mc_safe_df = df.sort_values('mc_downside_risk')[['unified_rank', 'player_id', 'position', 'mc_downside_risk', 'mc_volatility', 'mc_mean']]
-        mc_safe_df.to_excel(writer, sheet_name='MC_Safety_Analysis', index=False)
-
+        if all(col in df.columns for col in ['mc_downside_risk', 'mc_volatility', 'mc_mean']):
+            mc_safe_df = df.sort_values('mc_downside_risk')[['unified_rank', 'player_id', 'position', 'mc_downside_risk', 'mc_volatility', 'mc_mean']]
+            mc_safe_df.to_excel(writer, sheet_name='MC_Safety_Analysis', index=False)
         # Highest probability of exceeding average
-        mc_prob_df = df.sort_values('mc_probability_above_avg', ascending=False)[['unified_rank', 'player_id', 'position', 'mc_probability_above_avg', 'mc_mean', 'mc_volatility']]
-        mc_prob_df.to_excel(writer, sheet_name='MC_Probability_Analysis', index=False)
-
+        if all(col in df.columns for col in ['mc_probability_above_avg', 'mc_mean', 'mc_volatility']):
+            mc_prob_df = df.sort_values('mc_probability_above_avg', ascending=False)[['unified_rank', 'player_id', 'position', 'mc_probability_above_avg', 'mc_mean', 'mc_volatility']]
+            mc_prob_df.to_excel(writer, sheet_name='MC_Probability_Analysis', index=False)
         # Most volatile players
-        mc_volatile_df = df.sort_values('mc_volatility', ascending=False)[['unified_rank', 'player_id', 'position', 'mc_volatility', 'mc_confidence_interval', 'mc_mean']]
-        mc_volatile_df.to_excel(writer, sheet_name='MC_Volatility_Analysis', index=False) 
+        if all(col in df.columns for col in ['mc_volatility', 'mc_confidence_interval', 'mc_mean']):
+            mc_volatile_df = df.sort_values('mc_volatility', ascending=False)[['unified_rank', 'player_id', 'position', 'mc_volatility', 'mc_confidence_interval', 'mc_mean']]
+            mc_volatile_df.to_excel(writer, sheet_name='MC_Volatility_Analysis', index=False) 
