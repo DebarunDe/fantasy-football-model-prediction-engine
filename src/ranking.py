@@ -113,7 +113,7 @@ def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
     adp_columns = [
         'adp', 'player_id', 'team', 'position', 'unified_rank', 
         'rank_difference', 'league_size_adjusted_diff', 'value_recommendation',
-        'unified_big_board_score', 'raw_fantasy_points'
+        'unified_big_board_score', 'raw_fantasy_points', 'value_color'
     ]
     
     # Only include columns that exist
@@ -139,7 +139,7 @@ def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
     
     # Apply color coding to rows based on value_color
     for row_idx, (_, player) in enumerate(adp_comparison_df.iterrows(), start=2):  # Start at 2 to skip header
-        color = player['value_color']
+        color = player.get('value_color', 'white')  # Default to white if no color
         if color in color_fills:
             for col_idx in range(1, len(adp_export_columns) + 1):
                 cell = worksheet.cell(row=row_idx, column=col_idx)

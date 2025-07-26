@@ -525,25 +525,31 @@ def create_adp_comparison_sheet(big_board_df, league_size=12):
     comparison_df['value_color'] = comparison_df['league_size_adjusted_diff'].apply(get_value_color)
     
     # Add value recommendation text
-    def get_value_recommendation(color):
-        if color == 'teal':
-            return 'Strong Buy'
-        elif color == 'green':
-            return 'Buy'
-        elif color == 'light_green':
-            return 'Slight Buy'
-        elif color == 'yellow':
-            return 'Slight Avoid'
-        elif color == 'orange':
-            return 'Avoid'
-        elif color == 'red':
-            return 'Strong Avoid'
-        elif color == 'purple':
+    def get_value_recommendation(league_size_adjusted_diff):
+        """
+        Get recommendation based on league-size-adjusted rank difference.
+        Uses the same logic as get_value_color for perfect alignment.
+        """
+        if pd.isna(league_size_adjusted_diff):
             return 'Not in ADP'
+        
+        diff = league_size_adjusted_diff
+        
+        # Same thresholds as get_value_color
+        if diff <= -1.5:
+            return 'Strong Buy'
+        elif diff <= -0.8:
+            return 'Buy'
+        elif diff <= -0.3:
+            return 'Slight Buy'
+        elif diff <= 0.3:
+            return 'Slight Avoid'
+        elif diff <= 0.8:
+            return 'Avoid'
         else:
-            return 'Unknown'
+            return 'Strong Avoid'
     
-    comparison_df['value_recommendation'] = comparison_df['value_color'].apply(get_value_recommendation)
+    comparison_df['value_recommendation'] = comparison_df['league_size_adjusted_diff'].apply(get_value_recommendation)
     
     print(f"[SUCCESS] Created ADP comparison with {len(comparison_df)} players")
     print(f"[INFO] Value recommendations: {comparison_df['value_recommendation'].value_counts().to_dict()}")
