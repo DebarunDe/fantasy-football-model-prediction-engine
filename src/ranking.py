@@ -131,8 +131,8 @@ def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
         'teal': PatternFill(start_color='00CED1', end_color='00CED1', fill_type='solid'),
         'green': PatternFill(start_color='32CD32', end_color='32CD32', fill_type='solid'),
         'light_green': PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid'),
+        'white': PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid'),  # Neutral - no color
         'yellow': PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid'),
-        'orange': PatternFill(start_color='FFA500', end_color='FFA500', fill_type='solid'),
         'red': PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid'),
         'purple': PatternFill(start_color='800080', end_color='800080', fill_type='solid')
     }

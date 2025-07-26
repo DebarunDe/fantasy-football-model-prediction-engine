@@ -374,24 +374,24 @@ def get_value_color(league_size_adjusted_diff):
     """
     Get color based on league-size-adjusted rank difference.
     FIXED: Negative diff means our rank is better than ADP (BUY), positive diff means our rank is worse than ADP (AVOID)
-    Enhanced with more conservative thresholds for large differences.
+    Updated with more intuitive thresholds for fantasy football value recommendations.
     """
     if pd.isna(league_size_adjusted_diff):
         return 'purple'  # Missing from ADP
     
     diff = league_size_adjusted_diff
     
-    # More conservative thresholds for large differences
-    if diff <= -1.5:
-        return 'teal'      # Our rank is much better than ADP = Strong Buy
-    elif diff <= -0.8:
+    # More intuitive thresholds for fantasy football value recommendations
+    if diff <= -0.5:
+        return 'teal'      # Our rank is significantly better than ADP = Strong Buy
+    elif diff <= -0.2:
         return 'green'     # Our rank is better than ADP = Buy
-    elif diff <= -0.3:
+    elif diff <= 0.0:
         return 'light_green'  # Our rank is slightly better than ADP = Slight Buy
     elif diff <= 0.3:
-        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid
+        return 'white'     # Neutral - no strong recommendation
     elif diff <= 0.8:
-        return 'orange'    # Our rank is worse than ADP = Avoid
+        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid
     else:
         return 'red'       # Our rank is much worse than ADP = Strong Avoid
 
@@ -536,16 +536,16 @@ def create_adp_comparison_sheet(big_board_df, league_size=12):
         diff = league_size_adjusted_diff
         
         # Same thresholds as get_value_color
-        if diff <= -1.5:
+        if diff <= -0.5:
             return 'Strong Buy'
-        elif diff <= -0.8:
+        elif diff <= -0.2:
             return 'Buy'
-        elif diff <= -0.3:
+        elif diff <= 0.0:
             return 'Slight Buy'
         elif diff <= 0.3:
-            return 'Slight Avoid'
+            return 'Neutral'
         elif diff <= 0.8:
-            return 'Avoid'
+            return 'Slight Avoid'
         else:
             return 'Strong Avoid'
     
