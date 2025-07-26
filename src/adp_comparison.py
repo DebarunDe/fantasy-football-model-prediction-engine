@@ -9,126 +9,33 @@ import os
 
 def normalize_player_name(name):
     """
-    Normalize player names for matching between different data sources.
-    Enhanced to handle more edge cases and improve matching accuracy.
+    Normalize player names for consistent matching.
     """
     if pd.isna(name):
-        return ""
+        return ''
     
-    # Convert to string and lowercase
-    name = str(name).lower().strip()
+    # Convert to lowercase and remove extra whitespace
+    normalized = str(name).lower().strip()
     
-    # Remove common suffixes
-    suffixes = [' ii', ' iii', ' iv', ' jr.', ' sr.', ' jr', ' sr']
-    for suffix in suffixes:
-        if name.endswith(suffix):
-            name = name[:-len(suffix)]
-    
-    # Remove extra spaces and special characters
-    name = ' '.join(name.split())
-    name = name.replace('.', '').replace(',', '').replace('-', ' ')
+    # Remove special characters
+    normalized = normalized.replace('.', '').replace(',', '').replace('-', ' ')
     
     # Handle common name variations
     name_variations = {
         'jimmy': 'james',
-        'jim': 'james',
-        'mike': 'michael',
-        'mikey': 'michael',
-        'chris': 'christopher',
-        'nick': 'nicholas',
-        'nick': 'nicholas',
-        'joe': 'joseph',
-        'josh': 'joshua',
-        'dave': 'david',
-        'davey': 'david',
-        'rob': 'robert',
-        'bobby': 'robert',
-        'bob': 'robert',
-        'tom': 'thomas',
-        'tommy': 'thomas',
-        'dan': 'daniel',
-        'danny': 'daniel',
-        'sam': 'samuel',
-        'sammie': 'samuel',
-        'alex': 'alexander',
-        'alex': 'alexander',
-        'matt': 'matthew',
-        'nate': 'nathaniel',
-        'nate': 'nathaniel',
-        'ben': 'benjamin',
-        'benny': 'benjamin',
-        'andy': 'andrew',
-        'drew': 'andrew',
-        'tony': 'anthony',
-        'ant': 'anthony',
-        'steve': 'steven',
-        'steve': 'steven',
-        'brian': 'bryan',
-        'brian': 'bryan',
-        'phil': 'phillip',
-        'phil': 'phillip',
-        'jeff': 'jeffrey',
-        'jeff': 'jeffrey',
-        'greg': 'gregory',
-        'greg': 'gregory',
-        'kevin': 'kevin',
-        'kev': 'kevin',
-        'mark': 'mark',
-        'marc': 'mark',
-        'john': 'john',
-        'jon': 'john',
-        'jonny': 'john',
-        'johnny': 'john',
-        'bill': 'william',
-        'billy': 'william',
-        'will': 'william',
-        'willie': 'william',
-        'rick': 'richard',
-        'ricky': 'richard',
-        'dick': 'richard',
-        'rich': 'richard',
-        'ron': 'ronald',
-        'ronnie': 'ronald',
-        'ken': 'kenneth',
-        'kenny': 'kenneth',
-        'gary': 'gary',
-        'larry': 'lawrence',
-        'larry': 'lawrence',
-        'jerry': 'gerald',
-        'jerry': 'gerald',
-        'terry': 'terrence',
-        'terry': 'terrence',
-        'harry': 'harold',
-        'harry': 'harold',
-        'barry': 'barry',
-        'perry': 'perry',
-        'kerry': 'kerry',
-        'derry': 'derry',
-        'cherry': 'cherry',
-        'sherry': 'sherry',
-        'merry': 'merry',
-        'ferry': 'ferry',
-        'berry': 'berry',
-        'jerry': 'jerry',
-        'terry': 'terry',
-        'harry': 'harry',
-        'barry': 'barry',
-        'perry': 'perry',
-        'kerry': 'kerry',
-        'derry': 'derry',
-        'cherry': 'cherry',
-        'sherry': 'sherry',
-        'merry': 'merry',
-        'ferry': 'ferry',
-        'berry': 'berry'
+        'jameison': 'jameson',
+        'patrick mahomes ii': 'patrick mahomes',
+        'patrick mahomes 2': 'patrick mahomes',
+        'patrick mahomes 2nd': 'patrick mahomes',
+        'patrick mahomes': 'patrick mahomes',
+        'mahomes': 'patrick mahomes',
     }
     
-    # Apply name variations
-    for short_name, full_name in name_variations.items():
-        if name.startswith(short_name + ' '):
-            name = name.replace(short_name + ' ', full_name + ' ', 1)
+    for variation, standard in name_variations.items():
+        if variation in normalized:
+            normalized = normalized.replace(variation, standard)
     
-    return name
+    return normalized
 
 def get_fantasy_football_calculator_adp(league_size=12):
     """
@@ -348,6 +255,34 @@ def validate_adp_data(adp_df):
     """
     print("[INFO] Validating ADP data quality...")
     
+    # Filter out known incorrect ADP entries
+    incorrect_adp_entries = [
+        'Tom Kennedy',  # ADP 40.0 is clearly wrong - should be Jameson Williams but we have both players
+    ]
+    
+    # Remove incorrect ADP entries
+    for incorrect_name in incorrect_adp_entries:
+        if incorrect_name in adp_df['player_name'].values:
+            print(f"[INFO] Removing incorrect ADP entry: '{incorrect_name}' (ADP data error)")
+            adp_df = adp_df[adp_df['player_name'] != incorrect_name]
+    
+    # Handle duplicate ADP values by adding small offsets
+    print("[INFO] Checking for duplicate ADP values...")
+    duplicate_adp = adp_df[adp_df.duplicated(subset=['adp'], keep=False)]
+    if not duplicate_adp.empty:
+        print(f"[WARNING] Found {len(duplicate_adp)} players with duplicate ADP values")
+        
+        # Group by ADP value and add small offsets to break ties
+        for adp_val in duplicate_adp['adp'].unique():
+            duplicate_players = adp_df[adp_df['adp'] == adp_val]
+            if len(duplicate_players) > 1:
+                print(f"[INFO] Resolving duplicate ADP {adp_val}: {', '.join(duplicate_players['player_name'].tolist())}")
+                
+                # Add small offsets (0.1, 0.2, etc.) to break ties
+                for i, (idx, _) in enumerate(duplicate_players.iterrows()):
+                    if i > 0:  # Keep the first one unchanged
+                        adp_df.loc[idx, 'adp'] = adp_val + (i * 0.1)
+    
     # Filter out suspicious ADP values
     suspicious_adp = adp_df[
         (adp_df['adp'] < 1) |  # ADP below 1 is suspicious
@@ -373,7 +308,6 @@ def validate_adp_data(adp_df):
 def get_value_color(league_size_adjusted_diff):
     """
     Get color based on league-size-adjusted rank difference.
-    FIXED: Negative diff means our rank is better than ADP (BUY), positive diff means our rank is worse than ADP (AVOID)
     Updated with more intuitive thresholds for fantasy football value recommendations.
     """
     if pd.isna(league_size_adjusted_diff):
@@ -382,11 +316,12 @@ def get_value_color(league_size_adjusted_diff):
     diff = league_size_adjusted_diff
     
     # More intuitive thresholds for fantasy football value recommendations
-    if diff <= -0.5:
+    # Further adjusted to be less aggressive for top players
+    if diff <= -1.0:
         return 'teal'      # Our rank is significantly better than ADP = Strong Buy
-    elif diff <= -0.2:
+    elif diff <= -0.4:
         return 'green'     # Our rank is better than ADP = Buy
-    elif diff <= 0.0:
+    elif diff <= -0.15:
         return 'light_green'  # Our rank is slightly better than ADP = Slight Buy
     elif diff <= 0.3:
         return 'white'     # Neutral - no strong recommendation
@@ -394,6 +329,30 @@ def get_value_color(league_size_adjusted_diff):
         return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid
     else:
         return 'red'       # Our rank is much worse than ADP = Strong Avoid
+
+def get_value_recommendation(league_size_adjusted_diff):
+    """
+    Get recommendation based on league-size-adjusted rank difference.
+    Uses the same logic as get_value_color for perfect alignment.
+    """
+    if pd.isna(league_size_adjusted_diff):
+        return 'Not in ADP'
+    
+    diff = league_size_adjusted_diff
+    
+    # Same thresholds as get_value_color
+    if diff <= -1.0:
+        return 'Strong Buy'
+    elif diff <= -0.4:
+        return 'Buy'
+    elif diff <= -0.15:
+        return 'Slight Buy'
+    elif diff <= 0.3:
+        return 'Neutral'
+    elif diff <= 0.8:
+        return 'Slight Avoid'
+    else:
+        return 'Strong Avoid'
 
 def match_players_to_adp(big_board_df, adp_df, league_size=12):
     """
@@ -525,30 +484,6 @@ def create_adp_comparison_sheet(big_board_df, league_size=12):
     comparison_df['value_color'] = comparison_df['league_size_adjusted_diff'].apply(get_value_color)
     
     # Add value recommendation text
-    def get_value_recommendation(league_size_adjusted_diff):
-        """
-        Get recommendation based on league-size-adjusted rank difference.
-        Uses the same logic as get_value_color for perfect alignment.
-        """
-        if pd.isna(league_size_adjusted_diff):
-            return 'Not in ADP'
-        
-        diff = league_size_adjusted_diff
-        
-        # Same thresholds as get_value_color
-        if diff <= -0.5:
-            return 'Strong Buy'
-        elif diff <= -0.2:
-            return 'Buy'
-        elif diff <= 0.0:
-            return 'Slight Buy'
-        elif diff <= 0.3:
-            return 'Neutral'
-        elif diff <= 0.8:
-            return 'Slight Avoid'
-        else:
-            return 'Strong Avoid'
-    
     comparison_df['value_recommendation'] = comparison_df['league_size_adjusted_diff'].apply(get_value_recommendation)
     
     print(f"[SUCCESS] Created ADP comparison with {len(comparison_df)} players")
