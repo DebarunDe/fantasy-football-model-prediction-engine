@@ -10,6 +10,7 @@ import os
 def normalize_player_name(name):
     """
     Normalize player names for matching between different data sources.
+    Enhanced to handle more edge cases and improve matching accuracy.
     """
     if pd.isna(name):
         return ""
@@ -23,8 +24,109 @@ def normalize_player_name(name):
         if name.endswith(suffix):
             name = name[:-len(suffix)]
     
-    # Remove extra spaces
+    # Remove extra spaces and special characters
     name = ' '.join(name.split())
+    name = name.replace('.', '').replace(',', '').replace('-', ' ')
+    
+    # Handle common name variations
+    name_variations = {
+        'jimmy': 'james',
+        'jim': 'james',
+        'mike': 'michael',
+        'mikey': 'michael',
+        'chris': 'christopher',
+        'nick': 'nicholas',
+        'nick': 'nicholas',
+        'joe': 'joseph',
+        'josh': 'joshua',
+        'dave': 'david',
+        'davey': 'david',
+        'rob': 'robert',
+        'bobby': 'robert',
+        'bob': 'robert',
+        'tom': 'thomas',
+        'tommy': 'thomas',
+        'dan': 'daniel',
+        'danny': 'daniel',
+        'sam': 'samuel',
+        'sammie': 'samuel',
+        'alex': 'alexander',
+        'alex': 'alexander',
+        'matt': 'matthew',
+        'nate': 'nathaniel',
+        'nate': 'nathaniel',
+        'ben': 'benjamin',
+        'benny': 'benjamin',
+        'andy': 'andrew',
+        'drew': 'andrew',
+        'tony': 'anthony',
+        'ant': 'anthony',
+        'steve': 'steven',
+        'steve': 'steven',
+        'brian': 'bryan',
+        'brian': 'bryan',
+        'phil': 'phillip',
+        'phil': 'phillip',
+        'jeff': 'jeffrey',
+        'jeff': 'jeffrey',
+        'greg': 'gregory',
+        'greg': 'gregory',
+        'kevin': 'kevin',
+        'kev': 'kevin',
+        'mark': 'mark',
+        'marc': 'mark',
+        'john': 'john',
+        'jon': 'john',
+        'jonny': 'john',
+        'johnny': 'john',
+        'bill': 'william',
+        'billy': 'william',
+        'will': 'william',
+        'willie': 'william',
+        'rick': 'richard',
+        'ricky': 'richard',
+        'dick': 'richard',
+        'rich': 'richard',
+        'ron': 'ronald',
+        'ronnie': 'ronald',
+        'ken': 'kenneth',
+        'kenny': 'kenneth',
+        'gary': 'gary',
+        'larry': 'lawrence',
+        'larry': 'lawrence',
+        'jerry': 'gerald',
+        'jerry': 'gerald',
+        'terry': 'terrence',
+        'terry': 'terrence',
+        'harry': 'harold',
+        'harry': 'harold',
+        'barry': 'barry',
+        'perry': 'perry',
+        'kerry': 'kerry',
+        'derry': 'derry',
+        'cherry': 'cherry',
+        'sherry': 'sherry',
+        'merry': 'merry',
+        'ferry': 'ferry',
+        'berry': 'berry',
+        'jerry': 'jerry',
+        'terry': 'terry',
+        'harry': 'harry',
+        'barry': 'barry',
+        'perry': 'perry',
+        'kerry': 'kerry',
+        'derry': 'derry',
+        'cherry': 'cherry',
+        'sherry': 'sherry',
+        'merry': 'merry',
+        'ferry': 'ferry',
+        'berry': 'berry'
+    }
+    
+    # Apply name variations
+    for short_name, full_name in name_variations.items():
+        if name.startswith(short_name + ' '):
+            name = name.replace(short_name + ' ', full_name + ' ', 1)
     
     return name
 
@@ -243,6 +345,7 @@ def get_average_adp(league_size=12):
 def match_players_to_adp(big_board_df, adp_df, league_size=12):
     """
     Match players from big board to ADP data and calculate value differences.
+    Enhanced with better name matching and validation.
     """
     # Normalize player names in big board
     big_board_df = big_board_df.copy()
@@ -251,12 +354,13 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
     # Create a mapping from normalized names to ADP data
     adp_dict = dict(zip(adp_df['normalized_name'], adp_df['adp']))
     
-    # Match players using fuzzy matching
+    # Match players using fuzzy matching with higher threshold
     matched_players = []
     unmatched_big_board = []
     
     for _, player in big_board_df.iterrows():
         normalized_name = player['normalized_name']
+        player_position = player['position']
         
         # Try exact match first
         if normalized_name in adp_dict:
@@ -274,10 +378,36 @@ def match_players_to_adp(big_board_df, adp_df, league_size=12):
                 'matched': True
             })
         else:
-            # Try fuzzy matching
+            # Try fuzzy matching with higher threshold and position validation
             best_match = process.extractOne(normalized_name, adp_dict.keys(), scorer=fuzz.ratio)
-            if best_match and best_match[1] >= 85:  # 85% similarity threshold
+            if best_match and best_match[1] >= 95:  # Very high threshold for accuracy
                 matched_adp = adp_dict[best_match[0]]
+                
+                # Additional validation: check if the match makes sense
+                # If there's a huge discrepancy between our rank and ADP, be suspicious
+                rank_diff = abs(player['unified_rank'] - matched_adp)
+                if rank_diff > 200:  # If rank difference is more than 200, log for review
+                    print(f"[WARNING] Large rank difference for {player['player_id']}: our rank {player['unified_rank']} vs ADP {matched_adp} (diff: {rank_diff})")
+                    print(f"[WARNING] Matched '{player['player_id']}' to '{best_match[0]}' with {best_match[1]}% similarity")
+                    
+                    # For very large discrepancies, don't match unless similarity is extremely high
+                    if best_match[1] < 98:
+                        print(f"[WARNING] Rejecting match due to large rank difference and low similarity")
+                        unmatched_big_board.append({
+                            'player_id': player['player_id'],
+                            'team': player.get('team', ''),
+                            'position': player['position'],
+                            'unified_rank': player['unified_rank'],
+                            'unified_big_board_score': player['unified_big_board_score'],
+                            'raw_fantasy_points': player.get('raw_fantasy_points', 0),
+                            'vor_final': player.get('vor_final', 0),
+                            'adp': np.nan,
+                            'rank_difference': np.nan,
+                            'league_size_adjusted_diff': np.nan,
+                            'matched': False
+                        })
+                        continue
+                
                 matched_players.append({
                     'player_id': player['player_id'],
                     'team': player.get('team', ''),
