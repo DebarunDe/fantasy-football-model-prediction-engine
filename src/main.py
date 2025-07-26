@@ -6,11 +6,16 @@ from data_collection import (
     load_nflfastr_multi_years,
     calculate_team_pace
 )
-from transformation import calculate_fantasy_points, extract_player_availability
+from transformation import calculate_fantasy_points
 from weighting import injury_weight, team_context_weight
 from ranking import rank_players, export_to_excel
+from individual_optimizer import calculate_unified_big_board_score, analyze_unified_big_board_insights
+from trend_analyzer import calculate_performance_trends, apply_trend_analysis_to_big_board, analyze_trend_insights
+from monte_carlo_analyzer import calculate_monte_carlo_distributions, calculate_monte_carlo_rankings, analyze_monte_carlo_insights
+from advanced_efficiency_analyzer import calculate_advanced_efficiency_metrics, apply_efficiency_weights_to_projections, analyze_efficiency_insights
 from rapidfuzz import process, fuzz
 import re
+from vbd_optimizer import calculate_replacement_baselines, calculate_vor
 
 def map_fantasypros_to_pipeline(df):
     # Data is already cleaned in projections_collection.py
@@ -183,36 +188,113 @@ def main():
             player_id = row['player_id']
             team = row['team']
             position = row.get('position', 'RB')
-            expected_games = 17  # Baseline: ignore injury weighting
+            expected_games = 17
             try:
                 raw_points = calculate_fantasy_points(row)
             except Exception as e:
                 print(f'[WARN] Could not calculate fantasy points for {player_id}: {e}')
                 raw_points = 0
-            inj_weight = 1.0  # Baseline: no injury weighting
-            team_weight = 1.0  # Baseline: no team context weighting
-            weighted_points = raw_points  # No weighting
+            inj_weight = 1.0 # Baseline: no injury weighting
+            team_weight = 1.0 # Baseline: no team context weighting
+            weighted_points = raw_points # No weighting
             results.append({
                 **row,
                 'expected_games': expected_games,
                 'position': position,
                 'raw_fantasy_points': raw_points,
-                'injury_weight': inj_weight,
+                'injury_weight': inj_weight, # This will be used in individual_optimizer for minor adjustment
                 'team_weight': team_weight,
                 'weighted_fantasy_points': weighted_points,
                 'implied_points': 0,
                 'pace': 0,
             })
         results_df = pd.DataFrame(results)
-        print(f'[INFO] Ranking {len(results_df)} players and exporting to Excel...')
+
+        print('[INFO] Calculating advanced efficiency metrics from nflfastR data...')
         try:
+            # Calculate advanced efficiency metrics
+            efficiency_df = calculate_advanced_efficiency_metrics(nflfastr_df, results_df)
+            
+            # Apply efficiency weights to projections
+            results_df_with_efficiency = apply_efficiency_weights_to_projections(results_df, efficiency_df)
+            
+            # Generate efficiency insights
+            analyze_efficiency_insights(results_df_with_efficiency)
+            
+        except Exception as e:
+            print(f'[ERROR] Failed to calculate efficiency metrics: {e}')
+            traceback.print_exc()
+            # Continue without efficiency analysis
+            results_df_with_efficiency = results_df
+
+        print('[INFO] Analyzing performance trends and momentum...')
+        try:
+            # Calculate performance trends for each player
+            player_trends = calculate_performance_trends(nflfastr_df, results_df)
+            
+            # Apply trend analysis to the big board
+            results_df_with_trends = apply_trend_analysis_to_big_board(results_df_with_efficiency, player_trends)
+            
+            # Generate trend insights
+            analyze_trend_insights(results_df_with_trends)
+            
+        except Exception as e:
+            print(f'[ERROR] Failed to analyze trends: {e}')
+            traceback.print_exc()
+            # Continue without trend analysis
+            results_df_with_trends = results_df_with_efficiency
+        
+        print('[INFO] Generating Monte Carlo distributions...')
+        try:
+            # Generate Monte Carlo distributions
+            results_df_with_mc = calculate_monte_carlo_distributions(results_df_with_trends)
+            
+            # Calculate Monte Carlo rankings
+            results_df_with_mc = calculate_monte_carlo_rankings(results_df_with_mc)
+            
+            # Generate Monte Carlo insights
+            analyze_monte_carlo_insights(results_df_with_mc)
+            
+        except Exception as e:
+            print(f'[ERROR] Failed to generate Monte Carlo distributions: {e}')
+            traceback.print_exc()
+            # Continue without Monte Carlo analysis
+            results_df_with_mc = results_df_with_trends
+        
+        # === VBD & Scarcity Integration ===
+        print('[INFO] Calculating Value Over Replacement (VOR) and applying position scarcity adjustments...')
+        try:
+            baselines = calculate_replacement_baselines(results_df_with_mc)
+            results_df_with_vor = calculate_vor(results_df_with_mc, baselines)
+            # Position scarcity adjustment
+            scarcity_factors = {'QB': 1.00, 'RB': 1.05, 'WR': 1.02, 'TE': 1.08}
+            results_df_with_vor['scarcity_factor'] = results_df_with_vor['position'].map(scarcity_factors).fillna(1.0)
+            results_df_with_vor['vor_scarcity_adjusted'] = results_df_with_vor['vor'] * results_df_with_vor['scarcity_factor']
+            # Placeholder for SOS adjustment (set to 1.0 for now)
+            results_df_with_vor['sos_factor'] = 1.0
+            results_df_with_vor['vor_final'] = results_df_with_vor['vor_scarcity_adjusted'] * results_df_with_vor['sos_factor']
+        except Exception as e:
+            print(f'[ERROR] Failed to calculate VOR/scarcity: {e}')
+            traceback.print_exc()
+            results_df_with_vor = results_df_with_mc
+        
+        print('[INFO] Creating unified big board with individual optimizations, trends, Monte Carlo analysis, and VBD/scarcity...')
+        try:
+            # Apply unified big board optimization (now includes trend, Monte Carlo, VBD, and scarcity data)
+            unified_df = calculate_unified_big_board_score(results_df_with_vor)
+            # Generate unified big board insights
+            analyze_unified_big_board_insights(unified_df)
+            # Export unified big board with trends and Monte Carlo
+            export_to_excel(unified_df, filename='fantasy_big_board_unified_with_trends_and_mc.xlsx')
+        except Exception as e:
+            print(f'[ERROR] Failed to create unified big board: {e}')
+            traceback.print_exc()
+            # Fallback to regular ranking
+            print('[INFO] Falling back to regular ranking...')
             ranked_df = rank_players(results_df)
             export_to_excel(ranked_df)
-        except Exception as e:
-            print(f'[ERROR] Failed to rank or export: {e}')
-            traceback.print_exc()
             return
-        print('[SUCCESS] Big board exported to fantasy_big_board.xlsx')
+        print('[SUCCESS] Unified big board with trends, Monte Carlo, and VBD/scarcity exported to fantasy_big_board_unified_with_trends_and_mc.xlsx')
     except Exception as e:
         print(f'[FATAL ERROR] Pipeline failed: {e}')
         traceback.print_exc()
