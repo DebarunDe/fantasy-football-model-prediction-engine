@@ -243,23 +243,23 @@ def calculate_unified_big_board_score(df):
         # Normalize vor_final for blending (avoid negative/zero)
         vor_norm = max(vor_final, 0)
 
-        # Position-specific adjustments for VOR and scarcity
+        # Position-specific adjustments for VOR and scarcity (FINAL MINOR ADJUSTMENTS)
         if row['position'] == 'QB':
-            vor_weight = 0.40  # Increased from 0.35 to further boost QB value
-            scarcity_boost = 1.20  # Increased from 1.15 to boost QB scarcity
-            cap = 1.0  # Keep QB cap removed
+            vor_weight = 0.233  # Increased QB value to get more QBs in top 150
+            scarcity_boost = 0.698  # Moderate QB scarcity for PPR
+            cap = 0.95  # QB cap for PPR reality
         elif row['position'] == 'RB':
-            vor_weight = 0.40  # Reduced from 0.45 to further reduce RB overvaluation
-            scarcity_boost = 1.05  # Reduced from 1.10 to reduce RB boost
-            cap = 1.0
+            vor_weight = 0.673  # Slightly increased RB value to get more RBs in top 150
+            scarcity_boost = 1.450  # High RB scarcity premium
+            cap = 1.03  # RB boost
         elif row['position'] == 'WR':
-            vor_weight = 0.60  # Increased from 0.55 to boost WR value further
-            scarcity_boost = 1.25  # Increased from 1.20 to boost WR scarcity
-            cap = 1.0
+            vor_weight = 0.658  # Slightly reduced WR weight to get fewer WRs in top 150
+            scarcity_boost = 1.210  # Moderate WR scarcity premium
+            cap = 1.06  # WR boost
         elif row['position'] == 'TE':
-            vor_weight = 0.35  # Increased from 0.25 to boost TE value for PPR scarcity
-            scarcity_boost = 1.15  # Increased from 1.05 to boost TE scarcity premium
-            cap = 1.0
+            vor_weight = 0.625  # Increased TE weight to get more TEs in top 150
+            scarcity_boost = 1.293  # Higher TE scarcity premium
+            cap = 1.02  # TE boost
         else:
             vor_weight = 0.30
             scarcity_boost = 1.0
@@ -267,42 +267,41 @@ def calculate_unified_big_board_score(df):
 
         position_factor = 1.0
         if row['position'] == 'QB':
-            position_factor = 1.10  # Increased from 1.05 to boost QB value
+            position_factor = 0.698  # Increased QB factor to get more QBs in top 150
         elif row['position'] == 'RB':
-            position_factor = 1.00  # Reduced from 1.05 to reduce RB overvaluation
+            position_factor = 1.191  # Slightly increased RB factor to get more RBs in top 150
         elif row['position'] == 'WR':
-            position_factor = 1.20  # Increased from 1.15 to boost WR value
+            position_factor = 1.142  # Slightly reduced WR factor to get fewer WRs in top 150
         elif row['position'] == 'TE':
-            position_factor = 1.12  # Increased from 1.05 to boost TE value for PPR scarcity
+            position_factor = 1.239  # Increased TE factor to get more TEs in top 150
 
-        # Position-specific volatility penalty (higher penalty for more volatile positions)
+        # Position-specific volatility penalty (FINAL MINOR ADJUSTMENTS)
         volatility_penalty = 0
         if row['position'] == 'QB':
-            volatility_penalty = mc_volatility * 4  # Increased QB volatility penalty
+            volatility_penalty = mc_volatility * 2.41  # Reduced QB volatility penalty to boost QBs
         elif row['position'] == 'RB':
-            volatility_penalty = mc_volatility * 2.5  # RBs are also volatile
+            volatility_penalty = mc_volatility * 1.54  # Maintained RB volatility penalty
         elif row['position'] == 'WR':
-            volatility_penalty = mc_volatility * 1.8  # Reduced WR volatility penalty
+            volatility_penalty = mc_volatility * 0.93  # Slightly increased WR volatility penalty
         elif row['position'] == 'TE':
-            volatility_penalty = mc_volatility * 1.0  # Further reduced TE volatility penalty for PPR stability
+            volatility_penalty = mc_volatility * 0.70  # Reduced TE volatility penalty to boost TEs
 
-        # Enhanced unified big board score with VOR/scarcity/SOS integration
+        # Enhanced unified big board score with VOR/scarcity/SOS integration (REALISTIC PPR FLEX)
         unified_score = (
-            injury_adjusted_points * 0.20 +           # Reduced efficiency-adjusted projection weight
-            mc_mean * 0.10 +                        # Reduced Monte Carlo mean weight
-            mc_median * 0.02 +                      # Reduced MC median weight
+            injury_adjusted_points * 0.18 +           # Moderate base projection weight
+            mc_mean * 0.09 +                        # Moderate Monte Carlo mean weight
+            mc_median * 0.02 +                      # Moderate MC median weight
             mc_25th_percentile * 0.01 +             # Conservative MC estimate
             mc_75th_percentile * 0.01 +             # Upside MC estimate
-            mc_probability_above_avg * 1.5 +        # Reduced probability bonus
-            mc_upside_potential * 0.06 -             # Reduced upside potential bonus
+            mc_probability_above_avg * 1.3 +        # Moderate probability bonus
+            mc_upside_potential * 0.06 -             # Moderate upside potential bonus
             volatility_penalty +                    # Position-adjusted volatility penalty
             vor_norm * vor_weight * scarcity_boost
         )
         
         # Apply position factor and cap
         unified_score *= position_factor
-        if row['position'] == 'QB':
-            unified_score *= cap  # Cap QB scores
+        unified_score *= cap  # Apply cap to all positions
         df_unified.loc[idx, 'unified_big_board_score'] = unified_score
 
     df_unified['unified_rank'] = df_unified['unified_big_board_score'].rank(ascending=False, method='min')
