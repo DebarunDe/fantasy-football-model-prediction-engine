@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from scipy import stats
-from sklearn.linear_model import LinearRegression
 
 def calculate_advanced_statistical_metrics(df):
     """
