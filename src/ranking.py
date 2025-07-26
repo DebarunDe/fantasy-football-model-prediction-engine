@@ -1,4 +1,7 @@
 import pandas as pd
+from openpyxl.styles import PatternFill
+from openpyxl.utils.dataframe import dataframe_to_rows
+from adp_comparison import create_adp_comparison_sheet
 
 def rank_players(df, points_col='weighted_fantasy_points'):
     df = df.copy()
@@ -6,10 +9,10 @@ def rank_players(df, points_col='weighted_fantasy_points'):
     df = df.sort_values('rank')
     return df
 
-def export_to_excel(df, filename='fantasy_big_board.xlsx'):
+def export_to_excel(df, filename='fantasy_big_board.xlsx', league_size=12):
     """
     Export the unified big board to Excel with clean, user-friendly formatting.
-    Shows the main big board and position-specific rankings only.
+    Shows the main big board, position-specific rankings, and ADP comparison with color coding.
     """
     # Select key columns for the unified big board
     columns = [
@@ -40,6 +43,9 @@ def export_to_excel(df, filename='fantasy_big_board.xlsx'):
         # Create position-specific ranking sheets
         create_position_sheets(writer, df)
 
+        # Create ADP comparison sheet with color coding
+        create_adp_comparison_sheet_with_colors(writer, df, league_size)
+
         # Get the workbook and worksheet
         workbook = writer.book
         worksheet = writer.sheets['Big Board']
@@ -57,7 +63,7 @@ def export_to_excel(df, filename='fantasy_big_board.xlsx'):
             adjusted_width = min(max_length + 2, 50)
             worksheet.column_dimensions[column_letter].width = adjusted_width
 
-    print(f'[INFO] Clean big board exported to {filename}')
+    print(f'[INFO] Clean big board with ADP comparison exported to {filename}')
     return filename
 
 def create_position_sheets(writer, df):
@@ -94,4 +100,60 @@ def create_position_sheets(writer, df):
                     except:
                         pass
                 adjusted_width = min(max_length + 2, 50)
-                worksheet.column_dimensions[column_letter].width = adjusted_width 
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+
+def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
+    """
+    Create ADP comparison sheet with color coding based on value differences.
+    """
+    # Get ADP comparison data
+    adp_comparison_df = create_adp_comparison_sheet(df, league_size)
+    
+    # Select columns for the ADP comparison sheet
+    adp_columns = [
+        'avg_adp', 'player_id', 'team', 'position', 'unified_rank', 
+        'rank_difference', 'league_size_adjusted_diff', 'value_recommendation',
+        'unified_big_board_score', 'raw_fantasy_points'
+    ]
+    
+    # Only include columns that exist
+    adp_export_columns = [col for col in adp_columns if col in adp_comparison_df.columns]
+    adp_export_df = adp_comparison_df[adp_export_columns].copy()
+    
+    # Write to Excel
+    adp_export_df.to_excel(writer, sheet_name='ADP_Comparison', index=False)
+    
+    # Get the worksheet for formatting
+    worksheet = writer.sheets['ADP_Comparison']
+    
+    # Define color fills
+    color_fills = {
+        'teal': PatternFill(start_color='00CED1', end_color='00CED1', fill_type='solid'),
+        'green': PatternFill(start_color='32CD32', end_color='32CD32', fill_type='solid'),
+        'light_green': PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid'),
+        'yellow': PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid'),
+        'orange': PatternFill(start_color='FFA500', end_color='FFA500', fill_type='solid'),
+        'red': PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid'),
+        'purple': PatternFill(start_color='800080', end_color='800080', fill_type='solid')
+    }
+    
+    # Apply color coding to rows based on value_color
+    for row_idx, (_, player) in enumerate(adp_comparison_df.iterrows(), start=2):  # Start at 2 to skip header
+        color = player['value_color']
+        if color in color_fills:
+            for col_idx in range(1, len(adp_export_columns) + 1):
+                cell = worksheet.cell(row=row_idx, column=col_idx)
+                cell.fill = color_fills[color]
+    
+    # Auto-adjust column widths
+    for column in worksheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        worksheet.column_dimensions[column_letter].width = adjusted_width 
