@@ -219,16 +219,11 @@ def add_conditional_formatting(worksheet, num_columns):
     Add conditional formatting to automatically black out rows when DRAFTED = "YES"
     """
     try:
-        # Create conditional formatting rule for entire rows
-        # When DRAFTED column (column A) equals "YES", apply black background and white text to entire row
-        from openpyxl.formatting.rule import CellIsRule
-        
         last_row = worksheet.max_row
         if last_row > 1:  # Only apply if there's data
-            # Create a rule that applies to the entire row when DRAFTED = "YES"
-            # We'll use a formula-based rule that references the DRAFTED column
             from openpyxl.formatting.rule import FormulaRule
             
+            # Create a more robust formula-based rule that applies to entire rows
             # Formula: =$A2="YES" (checks if DRAFTED column equals "YES")
             # This will apply to the entire row when the condition is met
             row_blackout_rule = FormulaRule(
@@ -241,6 +236,22 @@ def add_conditional_formatting(worksheet, num_columns):
             # Apply to the entire data range (excluding header)
             data_range = f"A2:{chr(65 + num_columns - 1)}{last_row}"
             worksheet.conditional_formatting.add(data_range, row_blackout_rule)
+            
+            # Add a second rule with a different approach for better compatibility
+            # This rule applies to each cell individually but checks the DRAFTED column
+            for col_idx in range(1, num_columns + 1):  # Start from 1 (column A)
+                col_letter = chr(64 + col_idx)  # A, B, C, etc.
+                col_range = f"{col_letter}2:{col_letter}{last_row}"
+                
+                # Create a rule for this specific column
+                col_rule = FormulaRule(
+                    formula=[f'$A2="YES"'],
+                    stopIfTrue=True,
+                    fill=PatternFill(start_color='000000', end_color='000000', fill_type='solid'),
+                    font=Font(color='FFFFFF', bold=True)
+                )
+                
+                worksheet.conditional_formatting.add(col_range, col_rule)
             
         print("[INFO] Conditional formatting added for drafted players (entire rows)")
         
