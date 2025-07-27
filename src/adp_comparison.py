@@ -100,6 +100,8 @@ def get_fantasy_football_calculator_adp(league_size=12):
                         # Parse JSON response
                         data = response.json()
                         players = parse_fantasy_calculator_api_data(data)
+                        # Filter by times drafted >= 10
+                        players = [p for p in players if p[2] >= 10]
                         
                         if players and len(players) > max_players:
                             max_players = len(players)
@@ -112,14 +114,14 @@ def get_fantasy_football_calculator_adp(league_size=12):
         
         if best_result:
             print(f"[SUCCESS] Using best result with {len(best_result)} players")
-            return pd.DataFrame(best_result, columns=['player_name', 'adp'])
+            return pd.DataFrame(best_result, columns=['player_name', 'adp', 'times_drafted'])
         
         print("[ERROR] Could not get data from Fantasy Football Calculator API")
-        return pd.DataFrame(columns=['player_name', 'adp'])
+        return pd.DataFrame(columns=['player_name', 'adp', 'times_drafted'])
         
     except Exception as e:
         print(f"[ERROR] Fantasy Football Calculator API error: {e}")
-        return pd.DataFrame(columns=['player_name', 'adp'])
+        return pd.DataFrame(columns=['player_name', 'adp', 'times_drafted'])
 
 def parse_fantasy_calculator_api_data(data):
     """
@@ -137,14 +139,16 @@ def parse_fantasy_calculator_api_data(data):
             if players_array and isinstance(players_array, list):
                 for player in players_array:
                     if isinstance(player, dict):
-                        # Extract player name and ADP from the API response - try multiple possible keys
+                        # Extract player name, ADP, and TimesDrafted from the API response
                         name = player.get('name') or player.get('player') or player.get('player_name') or player.get('full_name')
                         adp = player.get('adp') or player.get('rank') or player.get('position') or player.get('overall_rank')
+                        times_drafted = player.get('times_drafted') or player.get('timesDrafted') or player.get('drafts')
                         
-                        if name and adp is not None:
+                        if name and adp is not None and times_drafted is not None:
                             try:
                                 adp_value = float(adp)
-                                players.append((name, adp_value))
+                                times_drafted_value = int(times_drafted)
+                                players.append((name, adp_value, times_drafted_value))
                             except (ValueError, TypeError):
                                 continue
             
@@ -154,11 +158,13 @@ def parse_fantasy_calculator_api_data(data):
                     if isinstance(player, dict):
                         name = player.get('name') or player.get('player')
                         adp = player.get('adp') or player.get('rank')
+                        times_drafted = player.get('times_drafted') or player.get('timesDrafted') or player.get('drafts')
                         
-                        if name and adp is not None:
+                        if name and adp is not None and times_drafted is not None:
                             try:
                                 adp_value = float(adp)
-                                players.append((name, adp_value))
+                                times_drafted_value = int(times_drafted)
+                                players.append((name, adp_value, times_drafted_value))
                             except (ValueError, TypeError):
                                 continue
         
@@ -168,11 +174,13 @@ def parse_fantasy_calculator_api_data(data):
                 if isinstance(player, dict):
                     name = player.get('name') or player.get('player')
                     adp = player.get('adp') or player.get('rank')
+                    times_drafted = player.get('times_drafted') or player.get('timesDrafted') or player.get('drafts')
                     
-                    if name and adp is not None:
+                    if name and adp is not None and times_drafted is not None:
                         try:
                             adp_value = float(adp)
-                            players.append((name, adp_value))
+                            times_drafted_value = int(times_drafted)
+                            players.append((name, adp_value, times_drafted_value))
                         except (ValueError, TypeError):
                             continue
         
@@ -182,11 +190,11 @@ def parse_fantasy_calculator_api_data(data):
         # Remove duplicates based on player name
         seen_names = set()
         unique_players = []
-        for name, adp in players:
+        for name, adp, times_drafted in players:
             normalized_name = normalize_player_name(name)
             if normalized_name not in seen_names:
                 seen_names.add(normalized_name)
-                unique_players.append((name, adp))
+                unique_players.append((name, adp, times_drafted))
         
         print(f"[INFO] Parsed {len(unique_players)} unique players from API response")
         
