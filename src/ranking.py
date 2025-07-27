@@ -1,6 +1,7 @@
 import pandas as pd
 from openpyxl.styles import PatternFill, Font
 from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.formatting.rule import CellIsRule
 from adp_comparison import create_adp_comparison_sheet
 
 def rank_players(df, points_col='weighted_fantasy_points'):
@@ -35,8 +36,8 @@ def export_to_excel(df, filename='fantasy_big_board.xlsx', league_size=12):
     final_columns = [col for col in columns if col in df.columns]
     export_df = df[final_columns].copy()
     
-    # Add DRAFTED column
-    export_df['DRAFTED'] = 'NO'
+    # Add DRAFTED column first
+    export_df.insert(0, 'DRAFTED', 'NO')
 
     # Create Excel writer
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
@@ -62,6 +63,9 @@ def export_to_excel(df, filename='fantasy_big_board.xlsx', league_size=12):
                 pass
         adjusted_width = min(max_length + 2, 50)
         worksheet.column_dimensions[column_letter].width = adjusted_width
+    
+    # Add conditional formatting for drafted players
+    add_conditional_formatting(worksheet, len(export_df.columns))
 
     print(f'[INFO] Clean big board with ADP comparison exported to {filename}')
     return filename
@@ -83,8 +87,8 @@ def create_position_sheets(writer, df):
             pos_export_columns = [col for col in pos_columns if col in pos_df.columns]
             pos_export_df = pos_df[pos_export_columns].copy()
             
-            # Add DRAFTED column
-            pos_export_df['DRAFTED'] = 'NO'
+            # Add DRAFTED column first
+            pos_export_df.insert(0, 'DRAFTED', 'NO')
             
             # Sort by unified rank
             pos_export_df = pos_export_df.sort_values('unified_rank')
@@ -104,6 +108,9 @@ def create_position_sheets(writer, df):
                         pass
                 adjusted_width = min(max_length + 2, 50)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
+            
+            # Add conditional formatting for drafted players
+            add_conditional_formatting(worksheet, len(pos_export_df.columns))
 
 def create_new_adp_comparison_sheet(writer, df, league_size=12):
     """
@@ -114,6 +121,9 @@ def create_new_adp_comparison_sheet(writer, df, league_size=12):
     
     # Create new format DataFrame
     new_adp_df = pd.DataFrame()
+    
+    # Add DRAFTED column first
+    new_adp_df['DRAFTED'] = 'NO'
     
     # Add ADP column
     new_adp_df['ADP'] = adp_comparison_df['adp']
@@ -153,9 +163,6 @@ def create_new_adp_comparison_sheet(writer, df, league_size=12):
     
     if 'rank_difference' in adp_comparison_df.columns:
         new_adp_df['RANK DIFFERENCE'] = adp_comparison_df['rank_difference']
-    
-    # Add a "DRAFTED" column for tracking
-    new_adp_df['DRAFTED'] = 'NO'
     
     # Sort by ADP (handle NaN values)
     new_adp_df = new_adp_df.sort_values('ADP', na_position='last')
@@ -198,6 +205,46 @@ def create_new_adp_comparison_sheet(writer, df, league_size=12):
                 pass
         adjusted_width = min(max_length + 2, 50)
         worksheet.column_dimensions[column_letter].width = adjusted_width
+    
+    # Add conditional formatting for drafted players
+    add_conditional_formatting(worksheet, len(new_adp_df.columns))
+
+def add_conditional_formatting(worksheet, num_columns):
+    """
+    Add conditional formatting to automatically black out rows when DRAFTED = "YES"
+    """
+    try:
+        # Create conditional formatting rule
+        # When DRAFTED column (column A) equals "YES", apply black background and white text
+        from openpyxl.formatting.rule import CellIsRule
+        
+        # Black background with white text for drafted players
+        black_rule = CellIsRule(
+            operator='equal',
+            formula=['"YES"'],
+            stopIfTrue=True,
+            fill=PatternFill(start_color='000000', end_color='000000', fill_type='solid'),
+            font=Font(color='FFFFFF', bold=True)
+        )
+        
+        # Apply the rule to the entire data range (excluding header)
+        # Format: A2:Z{last_row} where A is the DRAFTED column
+        last_row = worksheet.max_row
+        if last_row > 1:  # Only apply if there's data
+            data_range = f"A2:{chr(65 + num_columns - 1)}{last_row}"
+            worksheet.conditional_formatting.add(data_range, black_rule)
+            
+        print("[INFO] Conditional formatting added for drafted players")
+        
+    except Exception as e:
+        print(f"[WARNING] Could not add conditional formatting: {e}")
+        print("[INFO] You can manually add conditional formatting:")
+        print("1. Select all data (A2:Z{last_row})")
+        print("2. Home > Conditional Formatting > New Rule")
+        print("3. 'Format only cells that contain'")
+        print("4. 'Cell value' 'equal to' 'YES'")
+        print("5. Format: Black background, white text")
+        print("6. Apply to all sheets")
 
 def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
     """
