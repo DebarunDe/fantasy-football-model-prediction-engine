@@ -313,27 +313,24 @@ def validate_adp_data(adp_df):
 def get_value_color(league_size_adjusted_diff):
     """
     Get color based on league-size-adjusted rank difference.
-    Updated with more intuitive thresholds for fantasy football value recommendations.
+    Analyst-style, more aggressive thresholds for fantasy football value recommendations.
     """
     if pd.isna(league_size_adjusted_diff):
         return 'purple'  # Missing from ADP
-    
     diff = league_size_adjusted_diff
-    
-    # More intuitive thresholds for fantasy football value recommendations
-    # Much less aggressive thresholds for better balance
-    if diff <= -1.0:
-        return 'teal'      # Our rank is significantly better than ADP = Strong Buy
-    elif diff <= -0.4:
-        return 'green'     # Our rank is better than ADP = Buy
-    elif diff <= -0.15:
-        return 'light_green'  # Our rank is slightly better than ADP = Slight Buy
-    elif diff <= 0.8:
-        return 'white'     # Neutral - no strong recommendation (increased from 0.5)
-    elif diff <= 1.8:
-        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid (increased from 1.2)
+    # Analyst-style thresholds
+    if diff <= -0.5:
+        return 'teal'      # Strong Buy
+    elif diff <= -0.25:
+        return 'green'     # Buy
+    elif diff <= -0.10:
+        return 'light_green'  # Slight Buy
+    elif diff <= 0.25:
+        return 'white'     # Neutral
+    elif diff <= 0.5:
+        return 'yellow'    # Slight Avoid
     else:
-        return 'red'       # Our rank is much worse than ADP = Strong Avoid (increased threshold)
+        return 'red'       # Strong Avoid
 
 def get_value_recommendation(league_size_adjusted_diff):
     """
@@ -342,19 +339,17 @@ def get_value_recommendation(league_size_adjusted_diff):
     """
     if pd.isna(league_size_adjusted_diff):
         return 'Not in ADP'
-    
     diff = league_size_adjusted_diff
-    
-    # Same thresholds as get_value_color
-    if diff <= -1.0:
+    # Analyst-style thresholds
+    if diff <= -0.5:
         return 'Strong Buy'
-    elif diff <= -0.4:
+    elif diff <= -0.25:
         return 'Buy'
-    elif diff <= -0.15:
+    elif diff <= -0.10:
         return 'Slight Buy'
-    elif diff <= 0.8:
+    elif diff <= 0.25:
         return 'Neutral'
-    elif diff <= 1.8:
+    elif diff <= 0.5:
         return 'Slight Avoid'
     else:
         return 'Strong Avoid'
