@@ -12,7 +12,7 @@ def rank_players(df, points_col='weighted_fantasy_points'):
 def export_to_excel(df, filename='fantasy_big_board.xlsx', league_size=12):
     """
     Export the unified big board to Excel with clean, user-friendly formatting.
-    Shows the main big board, position-specific rankings, and ADP comparison with color coding.
+    Shows ADP comparison first, then unified big board, then position-specific rankings.
     """
     # Select key columns for the unified big board
     columns = [
@@ -37,20 +37,17 @@ def export_to_excel(df, filename='fantasy_big_board.xlsx', league_size=12):
 
     # Create Excel writer
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+        # Create ADP comparison sheet first (new format)
+        create_new_adp_comparison_sheet(writer, df, league_size)
+
         # Write main unified big board
-        export_df.to_excel(writer, sheet_name='Big Board', index=False)
+        export_df.to_excel(writer, sheet_name='UNIFIED_BIG_BOARD', index=False)
 
         # Create position-specific ranking sheets
         create_position_sheets(writer, df)
 
-        # Create ADP comparison sheet with color coding
-        create_adp_comparison_sheet_with_colors(writer, df, league_size)
-
-        # Get the workbook and worksheet
-        workbook = writer.book
-        worksheet = writer.sheets['Big Board']
-
-        # Auto-adjust column widths
+        # Auto-adjust column widths for unified big board
+        worksheet = writer.sheets['UNIFIED_BIG_BOARD']
         for column in worksheet.columns:
             max_length = 0
             column_letter = column[0].column_letter
@@ -101,6 +98,96 @@ def create_position_sheets(writer, df):
                         pass
                 adjusted_width = min(max_length + 2, 50)
                 worksheet.column_dimensions[column_letter].width = adjusted_width
+
+def create_new_adp_comparison_sheet(writer, df, league_size=12):
+    """
+    Create ADP comparison sheet in the new format: ADP, QB, WR, RB, TE, UNIFIED BIG BOARD RANKING, metrics
+    """
+    # Get ADP comparison data
+    adp_comparison_df = create_adp_comparison_sheet(df, league_size)
+    
+    # Create new format DataFrame
+    new_adp_df = pd.DataFrame()
+    
+    # Add ADP column
+    new_adp_df['ADP'] = adp_comparison_df['adp']
+    
+    # Add position columns (empty by default)
+    new_adp_df['QB'] = ''
+    new_adp_df['WR'] = ''
+    new_adp_df['RB'] = ''
+    new_adp_df['TE'] = ''
+    
+    # Fill position columns based on player position
+    for idx, row in adp_comparison_df.iterrows():
+        position = row['position']
+        player_name = row['player_id']
+        
+        if position == 'QB':
+            new_adp_df.at[idx, 'QB'] = player_name
+        elif position == 'WR':
+            new_adp_df.at[idx, 'WR'] = player_name
+        elif position == 'RB':
+            new_adp_df.at[idx, 'RB'] = player_name
+        elif position == 'TE':
+            new_adp_df.at[idx, 'TE'] = player_name
+    
+    # Add unified big board ranking
+    new_adp_df['UNIFIED BIG BOARD RANKING'] = adp_comparison_df['unified_rank']
+    
+    # Add additional metrics
+    if 'raw_fantasy_points' in adp_comparison_df.columns:
+        new_adp_df['PROJECTED POINTS'] = adp_comparison_df['raw_fantasy_points'].round(1)
+    
+    if 'unified_big_board_score' in adp_comparison_df.columns:
+        new_adp_df['UNIFIED SCORE'] = adp_comparison_df['unified_big_board_score'].round(3)
+    
+    if 'value_recommendation' in adp_comparison_df.columns:
+        new_adp_df['VALUE RECOMMENDATION'] = adp_comparison_df['value_recommendation']
+    
+    if 'rank_difference' in adp_comparison_df.columns:
+        new_adp_df['RANK DIFFERENCE'] = adp_comparison_df['rank_difference']
+    
+    # Sort by ADP (handle NaN values)
+    new_adp_df = new_adp_df.sort_values('ADP', na_position='last')
+    
+    # Write to Excel
+    new_adp_df.to_excel(writer, sheet_name='ADP_COMPARISON', index=False)
+    
+    # Get the worksheet for formatting
+    worksheet = writer.sheets['ADP_COMPARISON']
+    
+    # Define color fills
+    color_fills = {
+        'teal': PatternFill(start_color='00CED1', end_color='00CED1', fill_type='solid'),
+        'green': PatternFill(start_color='32CD32', end_color='32CD32', fill_type='solid'),
+        'light_green': PatternFill(start_color='90EE90', end_color='90EE90', fill_type='solid'),
+        'white': PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid'),  # Neutral - no color
+        'yellow': PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid'),
+        'red': PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid'),
+        'purple': PatternFill(start_color='800080', end_color='800080', fill_type='solid')
+    }
+    
+    # Apply color coding to rows based on value_color
+    for row_idx, (_, player) in enumerate(adp_comparison_df.iterrows(), start=2):  # Start at 2 to skip header
+        color = player.get('value_color', 'white')  # Default to white if no color
+        if color in color_fills:
+            for col_idx in range(1, len(new_adp_df.columns) + 1):
+                cell = worksheet.cell(row=row_idx, column=col_idx)
+                cell.fill = color_fills[color]
+    
+    # Auto-adjust column widths
+    for column in worksheet.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        worksheet.column_dimensions[column_letter].width = adjusted_width
 
 def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
     """
