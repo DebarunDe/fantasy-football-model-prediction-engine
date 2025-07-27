@@ -29,6 +29,9 @@ def normalize_player_name(name):
         'patrick mahomes 2nd': 'patrick mahomes',
         'patrick mahomes': 'patrick mahomes',
         'mahomes': 'patrick mahomes',
+        'aaron jones sr': 'aaron jones',
+        'aaron jones sr.': 'aaron jones',
+        'aaron jones senior': 'aaron jones',
     }
     
     for variation, standard in name_variations.items():

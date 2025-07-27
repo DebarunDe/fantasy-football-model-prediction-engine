@@ -243,11 +243,11 @@ def calculate_unified_big_board_score(df):
         # Normalize vor_final for blending (avoid negative/zero)
         vor_norm = max(vor_final, 0)
 
-        # Position-specific adjustments for VOR and scarcity (FINAL MINOR ADJUSTMENTS)
+        # Position-specific adjustments for VOR and scarcity (FINAL QB BOOST)
         if row['position'] == 'QB':
-            vor_weight = 0.233  # Increased QB value to get more QBs in top 150
-            scarcity_boost = 0.698  # Moderate QB scarcity for PPR
-            cap = 0.95  # QB cap for PPR reality
+            vor_weight = 0.285  # Further increased QB value to reduce undervaluation
+            scarcity_boost = 0.750  # Increased QB scarcity for PPR
+            cap = 0.97  # Slightly higher QB cap
         elif row['position'] == 'RB':
             vor_weight = 0.673  # Slightly increased RB value to get more RBs in top 150
             scarcity_boost = 1.450  # High RB scarcity premium
@@ -267,7 +267,7 @@ def calculate_unified_big_board_score(df):
 
         position_factor = 1.0
         if row['position'] == 'QB':
-            position_factor = 0.698  # Increased QB factor to get more QBs in top 150
+            position_factor = 0.750  # Further increased QB factor to reduce undervaluation
         elif row['position'] == 'RB':
             position_factor = 1.191  # Slightly increased RB factor to get more RBs in top 150
         elif row['position'] == 'WR':
@@ -278,7 +278,7 @@ def calculate_unified_big_board_score(df):
         # Position-specific volatility penalty (FINAL MINOR ADJUSTMENTS)
         volatility_penalty = 0
         if row['position'] == 'QB':
-            volatility_penalty = mc_volatility * 2.41  # Reduced QB volatility penalty to boost QBs
+            volatility_penalty = mc_volatility * 2.20  # Further reduced QB volatility penalty to boost QBs
         elif row['position'] == 'RB':
             volatility_penalty = mc_volatility * 1.54  # Maintained RB volatility penalty
         elif row['position'] == 'WR':
