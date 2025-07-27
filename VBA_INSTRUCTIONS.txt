@@ -1,0 +1,170 @@
+VBA CODE FOR DRAFT MANAGEMENT
+================================
+
+Copy the following code to your Excel VBA editor (Alt+F11):
+
+Sub MarkPlayerAsDrafted()
+    Dim ws As Worksheet
+    Dim playerName As String
+    Dim foundCell As Range
+    Dim rowNum As Long
+    Dim colNum As Long
+    Dim i As Long
+    
+    ' Get the player name from the active cell
+    playerName = ActiveCell.Value
+    
+    ' Check if we're in a valid cell with a player name
+    If playerName = "" Or IsNumeric(playerName) Then
+        MsgBox "Please click on a player name to mark as drafted.", vbInformation
+        Exit Sub
+    End If
+    
+    ' Loop through all worksheets
+    For Each ws In ThisWorkbook.Worksheets
+        ' Look for the player name in the worksheet
+        Set foundCell = ws.Cells.Find(What:=playerName, LookIn:=xlValues, LookAt:=xlWhole, MatchCase:=False)
+        
+        If Not foundCell Is Nothing Then
+            ' Found the player, get their row
+            rowNum = foundCell.Row
+            
+            ' Check if this is a header row
+            If rowNum > 1 Then
+                ' Mark the entire row as drafted
+                For colNum = 1 To ws.Cells(rowNum, ws.Columns.Count).End(xlToLeft).Column
+                    ' Set background to black
+                    ws.Cells(rowNum, colNum).Interior.Color = RGB(0, 0, 0)
+                    ' Set font to white
+                    ws.Cells(rowNum, colNum).Font.Color = RGB(255, 255, 255)
+                Next colNum
+                
+                ' Update the DRAFTED column if it exists
+                For colNum = 1 To ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+                    If ws.Cells(1, colNum).Value = "DRAFTED" Then
+                        ws.Cells(rowNum, colNum).Value = "YES"
+                        Exit For
+                    End If
+                Next colNum
+            End If
+        End If
+    Next ws
+    
+    MsgBox "Player '" & playerName & "' has been marked as drafted across all sheets.", vbInformation
+End Sub
+
+Sub UndoDraftedPlayer()
+    Dim ws As Worksheet
+    Dim playerName As String
+    Dim foundCell As Range
+    Dim rowNum As Long
+    Dim colNum As Long
+    
+    ' Get the player name from the active cell
+    playerName = ActiveCell.Value
+    
+    ' Check if we're in a valid cell with a player name
+    If playerName = "" Or IsNumeric(playerName) Then
+        MsgBox "Please click on a player name to undo drafted status.", vbInformation
+        Exit Sub
+    End If
+    
+    ' Loop through all worksheets
+    For Each ws In ThisWorkbook.Worksheets
+        ' Look for the player name in the worksheet
+        Set foundCell = ws.Cells.Find(What:=playerName, LookIn:=xlValues, LookAt:=xlWhole, MatchCase:=False)
+        
+        If Not foundCell Is Nothing Then
+            ' Found the player, get their row
+            rowNum = foundCell.Row
+            
+            ' Check if this is a header row
+            If rowNum > 1 Then
+                ' Restore the row formatting
+                For colNum = 1 To ws.Cells(rowNum, ws.Columns.Count).End(xlToLeft).Column
+                    ' Reset background to no fill
+                    ws.Cells(rowNum, colNum).Interior.ColorIndex = xlNone
+                    ' Reset font to automatic
+                    ws.Cells(rowNum, colNum).Font.ColorIndex = xlAutomatic
+                Next colNum
+                
+                ' Update the DRAFTED column if it exists
+                For colNum = 1 To ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
+                    If ws.Cells(1, colNum).Value = "DRAFTED" Then
+                        ws.Cells(rowNum, colNum).Value = "NO"
+                        Exit For
+                    End If
+                Next colNum
+            End If
+        End If
+    Next ws
+    
+    MsgBox "Player '" & playerName & "' has been unmarked as drafted across all sheets.", vbInformation
+End Sub
+
+Sub AddDraftButtons()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    Dim btn As Button
+    
+    ' Add buttons to ADP_COMPARISON sheet
+    Set ws = ThisWorkbook.Worksheets("ADP_COMPARISON")
+    lastRow = ws.Cells(ws.Rows.Count, "B").End(xlUp).Row
+    
+    ' Clear existing buttons
+    ws.Buttons.Delete
+    
+    ' Add buttons for each player row
+    For i = 2 To lastRow
+        ' Only add button if there's a player name in any position column
+        If ws.Cells(i, 2).Value <> "" Or ws.Cells(i, 3).Value <> "" Or ws.Cells(i, 4).Value <> "" Or ws.Cells(i, 5).Value <> "" Then
+            Set btn = ws.Buttons.Add(ws.Cells(i, 1).Left, ws.Cells(i, 1).Top, 20, 15)
+            btn.OnAction = "MarkPlayerAsDrafted"
+            btn.Caption = "D"
+            btn.Name = "DraftBtn_" & i
+        End If
+    Next i
+End Sub
+
+SETUP INSTRUCTIONS:
+==================
+
+1. Open your fantasy_big_board.xlsx file
+2. Press Alt+F11 to open the VBA editor
+3. In the VBA editor, go to Insert > Module
+4. Copy and paste the VBA code above into the module
+5. Save the workbook (Ctrl+S)
+6. Close the VBA editor (Alt+Q)
+7. Press Alt+F8 to open the Macro dialog
+8. Run the "AddDraftButtons" macro to add draft buttons
+9. Now you can use the draft management features!
+
+USAGE INSTRUCTIONS:
+==================
+
+TO MARK A PLAYER AS DRAFTED:
+- Click on any player name in any sheet
+- Press Alt+F8 and run "MarkPlayerAsDrafted"
+- The player will be blacked out across ALL sheets
+
+TO UNDO A DRAFTED PLAYER:
+- Click on the player name you want to restore
+- Press Alt+F8 and run "UndoDraftedPlayer"
+- The player will be restored across ALL sheets
+
+TO ADD DRAFT BUTTONS:
+- Press Alt+F8 and run "AddDraftButtons"
+- Small "D" buttons will appear next to each player in the ADP_COMPARISON sheet
+- Click these buttons to quickly mark players as drafted
+
+FEATURES:
+=========
+
+✅ Black out drafted players across all sheets
+✅ White text on black background for visibility
+✅ Updates "DRAFTED" column to "YES"/"NO"
+✅ Works on all sheets (ADP_COMPARISON, UNIFIED_BIG_BOARD, QB_Rankings, etc.)
+✅ Easy undo functionality
+✅ Quick draft buttons for fast marking
+✅ Confirmation messages for all actions 
