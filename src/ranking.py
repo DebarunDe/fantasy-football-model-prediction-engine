@@ -219,48 +219,38 @@ def add_conditional_formatting(worksheet, num_columns):
     Add conditional formatting to automatically black out rows when DRAFTED = "YES"
     """
     try:
-        # Create conditional formatting rule
-        # When DRAFTED column (column A) equals "YES", apply black background and white text
+        # Create conditional formatting rule for entire rows
+        # When DRAFTED column (column A) equals "YES", apply black background and white text to entire row
         from openpyxl.formatting.rule import CellIsRule
         
-        # Black background with white text for drafted players
-        black_rule = CellIsRule(
-            operator='equal',
-            formula=['"YES"'],
-            stopIfTrue=True,
-            fill=PatternFill(start_color='000000', end_color='000000', fill_type='solid'),
-            font=Font(color='FFFFFF', bold=True)
-        )
-        
-        # Apply the rule to the entire data range (excluding header)
-        # Format: A2:Z{last_row} where A is the DRAFTED column
         last_row = worksheet.max_row
         if last_row > 1:  # Only apply if there's data
+            # Create a rule that applies to the entire row when DRAFTED = "YES"
+            # We'll use a formula-based rule that references the DRAFTED column
+            from openpyxl.formatting.rule import FormulaRule
+            
+            # Formula: =$A2="YES" (checks if DRAFTED column equals "YES")
+            # This will apply to the entire row when the condition is met
+            row_blackout_rule = FormulaRule(
+                formula=[f'$A2="YES"'],
+                stopIfTrue=True,
+                fill=PatternFill(start_color='000000', end_color='000000', fill_type='solid'),
+                font=Font(color='FFFFFF', bold=True)
+            )
+            
+            # Apply to the entire data range (excluding header)
             data_range = f"A2:{chr(65 + num_columns - 1)}{last_row}"
-            worksheet.conditional_formatting.add(data_range, black_rule)
+            worksheet.conditional_formatting.add(data_range, row_blackout_rule)
             
-        # Add a second rule with higher priority for the DRAFTED column specifically
-        drafted_rule = CellIsRule(
-            operator='equal',
-            formula=['"YES"'],
-            stopIfTrue=True,
-            fill=PatternFill(start_color='000000', end_color='000000', fill_type='solid'),
-            font=Font(color='FFFFFF', bold=True)
-        )
-        
-        # Apply to just the DRAFTED column (column A)
-        drafted_range = f"A2:A{last_row}"
-        worksheet.conditional_formatting.add(drafted_range, drafted_rule)
-            
-        print("[INFO] Conditional formatting added for drafted players")
+        print("[INFO] Conditional formatting added for drafted players (entire rows)")
         
     except Exception as e:
         print(f"[WARNING] Could not add conditional formatting: {e}")
         print("[INFO] You can manually add conditional formatting:")
         print("1. Select all data (A2:Z{last_row})")
         print("2. Home > Conditional Formatting > New Rule")
-        print("3. 'Format only cells that contain'")
-        print("4. 'Cell value' 'equal to' 'YES'")
+        print("3. 'Use a formula to determine which cells to format'")
+        print("4. Formula: =$A2=\"YES\"")
         print("5. Format: Black background, white text")
         print("6. Apply to all sheets")
 
