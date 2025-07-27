@@ -185,13 +185,18 @@ def create_new_adp_comparison_sheet(writer, df, league_size=12):
         'black': PatternFill(start_color='000000', end_color='000000', fill_type='solid')  # For drafted players
     }
     
-    # Apply color coding to rows based on value_color
+    # Apply color coding to rows based on value_color (but skip if player is drafted)
     for row_idx, (_, player) in enumerate(adp_comparison_df.iterrows(), start=2):  # Start at 2 to skip header
-        color = player.get('value_color', 'white')  # Default to white if no color
-        if color in color_fills:
-            for col_idx in range(1, len(new_adp_df.columns)):  # Exclude the DRAFTED column
-                cell = worksheet.cell(row=row_idx, column=col_idx)
-                cell.fill = color_fills[color]
+        # Check if this player is marked as drafted
+        drafted_cell = worksheet.cell(row=row_idx, column=1)  # Column A is DRAFTED
+        is_drafted = drafted_cell.value == "YES"
+        
+        if not is_drafted:  # Only apply value colors if not drafted
+            color = player.get('value_color', 'white')  # Default to white if no color
+            if color in color_fills:
+                for col_idx in range(1, len(new_adp_df.columns)):  # Exclude the DRAFTED column
+                    cell = worksheet.cell(row=row_idx, column=col_idx)
+                    cell.fill = color_fills[color]
     
     # Auto-adjust column widths
     for column in worksheet.columns:
@@ -233,6 +238,19 @@ def add_conditional_formatting(worksheet, num_columns):
         if last_row > 1:  # Only apply if there's data
             data_range = f"A2:{chr(65 + num_columns - 1)}{last_row}"
             worksheet.conditional_formatting.add(data_range, black_rule)
+            
+        # Add a second rule with higher priority for the DRAFTED column specifically
+        drafted_rule = CellIsRule(
+            operator='equal',
+            formula=['"YES"'],
+            stopIfTrue=True,
+            fill=PatternFill(start_color='000000', end_color='000000', fill_type='solid'),
+            font=Font(color='FFFFFF', bold=True)
+        )
+        
+        # Apply to just the DRAFTED column (column A)
+        drafted_range = f"A2:A{last_row}"
+        worksheet.conditional_formatting.add(drafted_range, drafted_rule)
             
         print("[INFO] Conditional formatting added for drafted players")
         
@@ -281,13 +299,18 @@ def create_adp_comparison_sheet_with_colors(writer, df, league_size=12):
         'purple': PatternFill(start_color='800080', end_color='800080', fill_type='solid')
     }
     
-    # Apply color coding to rows based on value_color
+    # Apply color coding to rows based on value_color (but skip if player is drafted)
     for row_idx, (_, player) in enumerate(adp_comparison_df.iterrows(), start=2):  # Start at 2 to skip header
-        color = player.get('value_color', 'white')  # Default to white if no color
-        if color in color_fills:
-            for col_idx in range(1, len(adp_export_columns) + 1):
-                cell = worksheet.cell(row=row_idx, column=col_idx)
-                cell.fill = color_fills[color]
+        # Check if this player is marked as drafted
+        drafted_cell = worksheet.cell(row=row_idx, column=1)  # Column A is DRAFTED
+        is_drafted = drafted_cell.value == "YES"
+        
+        if not is_drafted:  # Only apply value colors if not drafted
+            color = player.get('value_color', 'white')  # Default to white if no color
+            if color in color_fills:
+                for col_idx in range(1, len(adp_export_columns) + 1):
+                    cell = worksheet.cell(row=row_idx, column=col_idx)
+                    cell.fill = color_fills[color]
     
     # Auto-adjust column widths
     for column in worksheet.columns:
