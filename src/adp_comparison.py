@@ -261,6 +261,8 @@ def validate_adp_data(adp_df):
     # Filter out known incorrect ADP entries
     incorrect_adp_entries = [
         'Tom Kennedy',  # ADP 40.0 is clearly wrong - should be Jameson Williams but we have both players
+        'Ben VanSumeren',  # ADP 88.0 is clearly wrong for this player
+        'Nate Adkins',  # ADP 91.3 is clearly wrong for this player
     ]
     
     # Remove incorrect ADP entries
@@ -319,17 +321,17 @@ def get_value_color(league_size_adjusted_diff):
     diff = league_size_adjusted_diff
     
     # More intuitive thresholds for fantasy football value recommendations
-    # Adjusted to be much less aggressive for top players
+    # Much less aggressive thresholds for better balance
     if diff <= -1.0:
         return 'teal'      # Our rank is significantly better than ADP = Strong Buy
     elif diff <= -0.4:
         return 'green'     # Our rank is better than ADP = Buy
     elif diff <= -0.15:
         return 'light_green'  # Our rank is slightly better than ADP = Slight Buy
-    elif diff <= 0.5:
-        return 'white'     # Neutral - no strong recommendation (increased from 0.3)
-    elif diff <= 1.2:
-        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid (increased from 0.8)
+    elif diff <= 0.8:
+        return 'white'     # Neutral - no strong recommendation (increased from 0.5)
+    elif diff <= 1.8:
+        return 'yellow'    # Our rank is slightly worse than ADP = Slight Avoid (increased from 1.2)
     else:
         return 'red'       # Our rank is much worse than ADP = Strong Avoid (increased threshold)
 
@@ -350,9 +352,9 @@ def get_value_recommendation(league_size_adjusted_diff):
         return 'Buy'
     elif diff <= -0.15:
         return 'Slight Buy'
-    elif diff <= 0.5:
+    elif diff <= 0.8:
         return 'Neutral'
-    elif diff <= 1.2:
+    elif diff <= 1.8:
         return 'Slight Avoid'
     else:
         return 'Strong Avoid'
