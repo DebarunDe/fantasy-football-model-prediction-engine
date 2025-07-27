@@ -218,7 +218,7 @@ if __name__ == '__main__':
         df = calculate_bayesian_adjustments(df)
         df = calculate_consistency_metrics(df)
         unified_df = calculate_unified_big_board_score(df)
-        export_to_excel(unified_df, filename='fantasy_big_board.xlsx', league_size=league_size)
+        export_to_excel(unified_df, league_size=league_size)
         print('\nTop 20 Players for', year)
         print(unified_df[['player_id','position','unified_big_board_score']].head(20))
         sys.exit(0)
@@ -277,7 +277,7 @@ if __name__ == '__main__':
             df = calculate_bayesian_adjustments(df)
             df = calculate_consistency_metrics(df)
             unified_df = calculate_unified_big_board_score(df)
-            export_to_excel(unified_df, filename='fantasy_big_board.xlsx', league_size=league_size)
+            export_to_excel(unified_df, league_size=league_size)
             print('\nTop 20 Players for', year)
             print(unified_df[['player_id','position','unified_big_board_score']].head(20))
         except Exception as e:

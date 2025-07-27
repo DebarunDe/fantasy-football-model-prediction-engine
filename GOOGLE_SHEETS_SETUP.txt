@@ -1,0 +1,122 @@
+
+=== GOOGLE SHEETS CONDITIONAL FORMATTING SETUP ===
+
+Since Google Sheets doesn't automatically sync conditional formatting across sheets,
+you'll need to set up the conditional formatting manually in each sheet.
+
+STEP 1: SET UP CONDITIONAL FORMATTING IN EACH SHEET
+
+For each sheet (ADP_COMPARISON, UNIFIED_BIG_BOARD, QB_Rankings, RB_Rankings, WR_Rankings, TE_Rankings):
+
+1. Select all data in the sheet (excluding headers)
+2. Go to Format > Conditional formatting
+3. In the "Format cells if..." dropdown, select "Custom formula is"
+4. Enter this formula: =$A2="YES"
+5. Set the formatting:
+   - Background color: Black (#000000)
+   - Text color: White (#FFFFFF)
+   - Bold: Yes
+6. Click "Done"
+
+STEP 2: CROSS-SHEET SYNCHRONIZATION SCRIPT
+
+Since Google Sheets doesn't automatically sync the DRAFTED column across sheets,
+you can use this Google Apps Script to automatically sync changes:
+
+1. In Google Sheets, go to Extensions > Apps Script
+2. Replace the default code with the script below
+3. Save and authorize the script
+4. The script will automatically sync DRAFTED changes across all sheets
+
+=== GOOGLE APPS SCRIPT FOR CROSS-SHEET SYNC ===
+
+function onEdit(e) {
+  // Only run if the edited cell is in column A (DRAFTED column)
+  if (e.range.getColumn() !== 1) return;
+  
+  const sheet = e.source.getActiveSheet();
+  const sheetName = sheet.getName();
+  const row = e.range.getRow();
+  const value = e.range.getValue();
+  
+  // Skip header row
+  if (row === 1) return;
+  
+  // Get the player name from the appropriate column based on sheet
+  let playerName = "";
+  if (sheetName === "ADP_COMPARISON") {
+    // Find the player name in QB, WR, RB, or TE columns
+    const qbCol = sheet.getRange(row, 3).getValue(); // Column C
+    const wrCol = sheet.getRange(row, 4).getValue(); // Column D
+    const rbCol = sheet.getRange(row, 5).getValue(); // Column E
+    const teCol = sheet.getRange(row, 6).getValue(); // Column F
+    playerName = qbCol || wrCol || rbCol || teCol;
+  } else {
+    // For other sheets, get player name from column B
+    playerName = sheet.getRange(row, 2).getValue();
+  }
+  
+  if (!playerName) return;
+  
+  // Update all other sheets
+  const sheets = e.source.getSheets();
+  sheets.forEach(function(s) {
+    if (s.getName() === sheetName) return; // Skip current sheet
+    
+    // Find the player in this sheet
+    const data = s.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) { // Start from row 2 (skip header)
+      let foundPlayer = "";
+      
+      if (s.getName() === "ADP_COMPARISON") {
+        // Check QB, WR, RB, TE columns
+        foundPlayer = data[i][2] || data[i][3] || data[i][4] || data[i][5];
+      } else {
+        // Check player name column (usually column B)
+        foundPlayer = data[i][1];
+      }
+      
+      if (foundPlayer === playerName) {
+        // Update the DRAFTED column
+        s.getRange(i + 1, 1).setValue(value);
+        break;
+      }
+    }
+  });
+}
+
+=== ALTERNATIVE: MANUAL SYNC METHOD ===
+
+If you prefer not to use Apps Script, you can manually sync by:
+
+1. When you mark a player as drafted in one sheet
+2. Use Ctrl+F (or Cmd+F on Mac) to search for the player name
+3. Go to each sheet and manually change their DRAFTED status
+4. The conditional formatting will automatically apply
+
+=== MOBILE COMPATIBILITY ===
+
+The conditional formatting will work on:
+- Google Sheets mobile app
+- Excel mobile app (if you import the file)
+- Apple Numbers (if you import the file)
+
+=== TROUBLESHOOTING ===
+
+If conditional formatting isn't working:
+1. Make sure you selected all data (not just the DRAFTED column)
+2. Verify the formula is exactly: =$A2="YES"
+3. Check that the cell value is exactly "YES" (case sensitive)
+4. Try refreshing the page or reopening the sheet
+
+=== QUICK SETUP CHECKLIST ===
+
+□ Set up conditional formatting in ADP_COMPARISON sheet
+□ Set up conditional formatting in UNIFIED_BIG_BOARD sheet  
+□ Set up conditional formatting in QB_Rankings sheet
+□ Set up conditional formatting in RB_Rankings sheet
+□ Set up conditional formatting in WR_Rankings sheet
+□ Set up conditional formatting in TE_Rankings sheet
+□ (Optional) Install Google Apps Script for auto-sync
+□ Test by changing a player's DRAFTED status to "YES"
+

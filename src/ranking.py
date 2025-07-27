@@ -10,7 +10,15 @@ def rank_players(df, points_col='weighted_fantasy_points'):
     df = df.sort_values('rank')
     return df
 
-def export_to_excel(df, filename='fantasy_big_board.xlsx', league_size=12):
+def export_to_excel(df, filename=None, league_size=12):
+    """
+    Export the fantasy football big board to Excel with date in filename.
+    """
+    # Generate filename with current date if not provided
+    if filename is None:
+        from datetime import datetime
+        current_date = datetime.now().strftime("%m%d%y")  # MMDDYY format
+        filename = f'fantasy_big_board_{current_date}.xlsx'
     """
     Export the unified big board to Excel with clean, user-friendly formatting.
     Shows ADP comparison first, then unified big board, then position-specific rankings.
@@ -197,20 +205,20 @@ def create_new_adp_comparison_sheet(writer, df, league_size=12):
                 for col_idx in range(1, len(new_adp_df.columns)):  # Exclude the DRAFTED column
                     cell = worksheet.cell(row=row_idx, column=col_idx)
                     cell.fill = color_fills[color]
-    
-    # Auto-adjust column widths
-    for column in worksheet.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = min(max_length + 2, 50)
-        worksheet.column_dimensions[column_letter].width = adjusted_width
-    
+
+        # Auto-adjust column widths
+        for column in worksheet.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+
     # Add conditional formatting for drafted players
     add_conditional_formatting(worksheet, len(new_adp_df.columns))
 

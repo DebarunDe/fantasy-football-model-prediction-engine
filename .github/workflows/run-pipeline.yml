@@ -8,7 +8,7 @@ on:
         required: false
         default: '14'
   schedule:
-    - cron: '0 12 * * 1' # Runs every Monday at 12:00 UTC
+    - cron: '0 12 * * *' # Runs daily at 12:00 UTC
 
 jobs:
   build:
@@ -32,8 +32,40 @@ jobs:
         run: |
           python src/main.py ${{ github.event.inputs.league_size || '14' }}
 
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%m%d%y')" >> $GITHUB_OUTPUT
+
       - name: Upload Excel output
         uses: actions/upload-artifact@v4
         with:
-          name: fantasy-big-board
-          path: fantasy_big_board.xlsx 
+          name: fantasy-big-board-${{ steps.date.outputs.date }}
+          path: fantasy_big_board_*.xlsx
+
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Fantasy Football Big Board - ${{ steps.date.outputs.date }}"
+          to: debarun.de20@gmail.com
+          from: ${{ secrets.EMAIL_USERNAME }}
+          body: |
+            Hi Debarun,
+            
+            Your daily fantasy football big board has been generated and is attached to this email.
+            
+            Date: ${{ steps.date.outputs.date }}
+            League Size: ${{ github.event.inputs.league_size || '14' }} teams
+            
+            The Excel file contains:
+            - ADP Comparison with value recommendations
+            - Unified Big Board rankings
+            - Position-specific rankings (QB, RB, WR, TE)
+            - Draft management with conditional formatting
+            
+            Best regards,
+            Your Fantasy Football Model
+          attachments: fantasy_big_board_*.xlsx 
